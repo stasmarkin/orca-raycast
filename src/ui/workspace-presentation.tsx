@@ -1,7 +1,12 @@
 import { Color, Icon, type List } from "@raycast/api";
 import { needsAttention, type Workspace, type WorkspaceAgent } from "../orca/types";
 
-export const ORCA_BUNDLE_ID = "com.stablyai.orca";
+/** Agent transcripts contain code fences of their own, so the wrapper has to out-length the longest run. */
+export function fencedBlock(body: string): string {
+  const longestRun = Math.max(0, ...[...body.matchAll(/`+/g)].map((match) => match[0].length));
+  const fence = "`".repeat(Math.max(3, longestRun + 1));
+  return `${fence}\n${body}\n${fence}`;
+}
 
 export function statusIcon(workspace: Workspace): { source: Icon; tintColor: Color } {
   if (needsAttention(workspace)) return { source: Icon.QuestionMarkCircle, tintColor: Color.Orange };

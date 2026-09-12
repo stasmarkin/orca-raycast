@@ -1,14 +1,26 @@
+import { z } from "zod";
 import { invokeOrca } from "./invoke";
-import type { Repo, Workspace, WorkspaceListResult } from "./types";
+import {
+  CreateWorkspaceSchema,
+  RepoListSchema,
+  WorkspaceListSchema,
+  type CreateWorkspaceResult,
+  type Repo,
+  type Workspace,
+  type WorkspaceList,
+} from "./types";
 
-export async function listWorkspaces(): Promise<Workspace[]> {
+// Orca caps `worktree ps` at 200 and reports the rest only through `truncated`; a host with more
+// workspaces would silently hide the ones waiting on you.
+const LIST_LIMIT = 2000;
+
+export async function listWorkspaces(): Promise<WorkspaceList> {
   // `worktree ps` carries agent state and previews; `worktree list` does not.
-  const result = await invokeOrca<WorkspaceListResult>(["worktree", "ps"]);
-  return result.worktrees;
+  return invokeOrca(["worktree", "ps", `--limit=${LIST_LIMIT}`], WorkspaceListSchema);
 }
 
 export async function listRepos(): Promise<Repo[]> {
-  const result = await invokeOrca<{ repos: Repo[] }>(["repo", "list"]);
+  const result = await invokeOrca(["repo", "list"], RepoListSchema);
   return result.repos;
 }
 
@@ -24,35 +36,29 @@ export type CreateWorkspaceInput = {
   activate?: boolean;
 };
 
-export type CreateWorkspaceResult = {
-  worktree?: { id?: string; path?: string; branch?: string; displayName?: string };
-  agentTerminalHandle?: string;
-  startupTerminal?: { handle?: string };
-};
-
 export async function createWorkspace(input: CreateWorkspaceInput): Promise<CreateWorkspaceResult> {
-  const args = ["worktree", "create", "--name", input.name];
-  if (input.repoSelector) args.push("--repo", input.repoSelector);
-  if (input.baseBranch) args.push("--base-branch", input.baseBranch);
-  if (input.agent) args.push("--agent", input.agent);
-  if (input.prompt) args.push("--prompt", input.prompt);
-  if (input.comment) args.push("--comment", input.comment);
-  if (input.setup) args.push("--setup", input.setup);
+  const args = ["worktree", "create", `--name=${input.name}`];
+  if (input.repoSelector) args.push(`--repo=${input.repoSelector}`);
+  if (input.baseBranch) args.push(`--base-branch=${input.baseBranch}`);
+  if (input.agent) args.push(`--agent=${input.agent}`);
+  if (input.prompt) args.push(`--prompt=${input.prompt}`);
+  if (input.comment) args.push(`--comment=${input.comment}`);
+  if (input.setup) args.push(`--setup=${input.setup}`);
   if (input.noParent) args.push("--no-parent");
   if (input.activate) args.push("--activate");
 
   // Worktree creation runs setup hooks and an agent launch; the default timeout is too tight.
-  return invokeOrca<CreateWorkspaceResult>(args, { timeoutMs: 180_000 });
+  return invokeOrca(args, CreateWorkspaceSchema, { timeoutMs: 180_000 });
 }
 
-export async function removeWorkspace(worktreeId: string): Promise<void> {
-  await invokeOrca(["worktree", "rm", "--worktree", workspaceSelector(worktreeId), "--force"], {
-    timeoutMs: 120_000,
-  });
-}
-
-export async function setWorkspaceComment(worktreeId: string, comment: string): Promise<void> {
-  await invokeOrca(["worktree", "set", "--worktree", workspaceSelector(worktreeId), "--comment", comment]);
+/**
+ * Removes a worktree. Without `force` Orca refuses when the checkout is dirty or an agent is live,
+ * which is the only warning the user gets before uncommitted work is destroyed.
+ */
+export async function removeWorkspace(worktreeId: string, options: { force: boolean }): Promise<void> {
+  const args = ["worktree", "rm", `--worktree=${workspaceSelector(worktreeId)}`];
+  if (options.force) args.push("--force");
+  await invokeOrca(args, z.unknown(), { timeoutMs: 120_000 });
 }
 
 /** `id:` is the only form scoped to one repo, so it can never resolve ambiguously. */

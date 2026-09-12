@@ -11,7 +11,8 @@ const CANDIDATES = [
   join(homedir(), "bin/orca"),
 ];
 
-let cached: string | undefined;
+// Keyed by the preference value: the menu bar command outlives a settings change.
+let cached: { key: string; path: string } | undefined;
 
 export class OrcaBinaryNotFound extends Error {
   constructor() {
@@ -30,18 +31,13 @@ function isExecutable(path: string): boolean {
 }
 
 export function resolveOrcaBinary(): string {
-  if (cached) return cached;
-
   const { orcaPath } = getPreferenceValues<{ orcaPath?: string }>();
-  const configured = orcaPath?.trim();
-  if (configured) {
-    if (!isExecutable(configured)) throw new OrcaBinaryNotFound();
-    cached = configured;
-    return cached;
-  }
+  const configured = orcaPath?.trim() ?? "";
+  if (cached?.key === configured) return cached.path;
 
-  const found = CANDIDATES.find(isExecutable);
-  if (!found) throw new OrcaBinaryNotFound();
-  cached = found;
-  return cached;
+  const resolved = configured ? (isExecutable(configured) ? configured : undefined) : CANDIDATES.find(isExecutable);
+
+  if (!resolved) throw new OrcaBinaryNotFound();
+  cached = { key: configured, path: resolved };
+  return resolved;
 }

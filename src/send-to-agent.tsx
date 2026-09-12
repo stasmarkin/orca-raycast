@@ -9,6 +9,7 @@ export default function Command() {
       navigationTitle="Send to Agent"
       actionTitle="Compose Message"
       actionIcon={Icon.Message}
+      writableAgentsOnly
       target={(terminal) => (
         <SendTextForm handle={terminal.handle} title={terminal.title || basename(terminal.worktreePath)} />
       )}

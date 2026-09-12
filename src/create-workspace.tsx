@@ -3,6 +3,7 @@ import { useCachedPromise } from "@raycast/utils";
 import { useState } from "react";
 import { AGENT_IDS } from "./orca/agent-ids";
 import { createWorkspace, listRepos } from "./orca/workspaces";
+import { describeError, OrcaTimeoutError } from "./orca/invoke";
 import { revealTerminalInOrca } from "./orca/reveal";
 
 type FormValues = {
@@ -29,8 +30,9 @@ export default function Command() {
 
     setIsCreating(true);
     const toast = await showToast({ style: Toast.Style.Animated, title: "Creating workspace" });
+    let created: Awaited<ReturnType<typeof createWorkspace>>;
     try {
-      const result = await createWorkspace({
+      created = await createWorkspace({
         name: values.name.trim(),
         repoSelector: values.repo ? `id:${values.repo}` : undefined,
         baseBranch: values.baseBranch.trim() || undefined,
@@ -45,16 +47,27 @@ export default function Command() {
 
       toast.style = Toast.Style.Success;
       toast.title = "Workspace created";
-      toast.message = result.worktree?.path;
-
-      const handle = result.agentTerminalHandle ?? result.startupTerminal?.handle;
-      if (values.activate && handle) await revealTerminalInOrca(handle);
+      toast.message = created.worktree?.path;
     } catch (error) {
       toast.style = Toast.Style.Failure;
-      toast.title = "Create failed";
-      toast.message = String(error);
+      // A timed-out create usually left a real worktree behind; saying "failed" invites a duplicate.
+      toast.title = error instanceof OrcaTimeoutError ? "Still creating in Orca" : "Create failed";
+      toast.message = describeError(error);
+      return;
     } finally {
       setIsCreating(false);
+    }
+
+    const handle = created.agentTerminalHandle ?? created.startupTerminal?.handle;
+    if (!values.activate || !handle) return;
+    try {
+      await revealTerminalInOrca(handle);
+    } catch (error) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "Created, but could not switch to Orca",
+        message: describeError(error),
+      });
     }
   }
 

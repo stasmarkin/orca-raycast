@@ -1,28 +1,41 @@
-import { Action, ActionPanel, Icon, List, Keyboard } from "@raycast/api";
+import { Action, ActionPanel, Color, Icon, Keyboard, List } from "@raycast/api";
 import { useMemo } from "react";
 import { needsAttention } from "./orca/types";
-import { preferredAgentTerminal } from "./orca/terminals";
+import { agentTerminal, anyTerminal } from "./orca/terminals";
 import { useOrcaWorkspaces } from "./ui/use-orca-workspaces";
 import { WorkspaceActions } from "./ui/workspace-actions";
 import { AgentOutput } from "./ui/agent-output";
 import { SendTextForm } from "./ui/send-text-form";
-import { lastPreviewLine, workspaceAccessories } from "./ui/workspace-presentation";
-import { Color } from "@raycast/api";
+import { OrcaEmptyView, OrcaErrorBanner } from "./ui/orca-empty-view";
+import { fencedBlock, lastPreviewLine, workspaceAccessories } from "./ui/workspace-presentation";
 
 export default function Command() {
-  const { workspaces, terminalsFor, isLoading, revalidate } = useOrcaWorkspaces();
+  const { workspaces, terminalsFor, truncated, isLoading, error, revalidate } = useOrcaWorkspaces();
   const waiting = useMemo(() => workspaces.filter(needsAttention), [workspaces]);
 
   return (
     <List isLoading={isLoading} searchBarPlaceholder="Filter blocked agents" isShowingDetail={waiting.length > 0}>
-      <List.EmptyView
-        icon={{ source: Icon.CheckCircle, tintColor: Color.Green }}
-        title="Nobody is waiting"
-        description="No agent is blocked on you right now."
+      <OrcaEmptyView
+        error={error}
+        emptyTitle="Nobody is waiting"
+        emptyDescription="No agent is blocked on you right now."
+        emptyIcon={{ source: Icon.CheckCircle, tintColor: Color.Green }}
+        onRetry={revalidate}
       />
+      <OrcaErrorBanner error={error} hasData={workspaces.length > 0} onRetry={revalidate} />
+      {truncated && (
+        <List.Section title="Incomplete">
+          <List.Item
+            icon={{ source: Icon.ExclamationMark, tintColor: Color.Orange }}
+            title="Orca truncated its workspace list"
+            subtitle="Some waiting agents may be missing"
+          />
+        </List.Section>
+      )}
       {waiting.map((workspace) => {
         const terminals = terminalsFor(workspace);
-        const terminal = preferredAgentTerminal(terminals);
+        const writable = agentTerminal(terminals);
+        const navigable = anyTerminal(terminals);
         const blockedOn = workspace.agents.find((agent) => agent.state === "waiting");
 
         return (
@@ -34,7 +47,7 @@ export default function Command() {
             accessories={workspaceAccessories(workspace)}
             detail={
               <List.Item.Detail
-                markdown={workspace.preview ? `\`\`\`\n${workspace.preview}\n\`\`\`` : "_No preview_"}
+                markdown={workspace.preview ? fencedBlock(workspace.preview) : "_No preview_"}
                 metadata={
                   <List.Item.Detail.Metadata>
                     <List.Item.Detail.Metadata.Label title="Repo" text={workspace.repo} />
@@ -49,19 +62,27 @@ export default function Command() {
               />
             }
             actions={
-              terminal ? (
+              writable ? (
                 <ActionPanel>
                   <Action.Push
                     title="Answer Agent"
                     icon={Icon.Message}
-                    target={<SendTextForm handle={terminal.handle} title={workspace.displayName} onSent={revalidate} />}
+                    target={<SendTextForm handle={writable.handle} title={workspace.displayName} onSent={revalidate} />}
                   />
-                  <Action.Push
-                    title="Peek Agent Output"
-                    icon={Icon.Terminal}
-                    target={<AgentOutput handle={terminal.handle} title={workspace.displayName} />}
-                    shortcut={Keyboard.Shortcut.Common.OpenWith}
-                  />
+                  {navigable && (
+                    <Action.Push
+                      title="Peek Agent Output"
+                      icon={Icon.Terminal}
+                      target={
+                        <AgentOutput
+                          handle={navigable.handle}
+                          title={workspace.displayName}
+                          canSend={navigable.handle === writable.handle}
+                        />
+                      }
+                      shortcut={Keyboard.Shortcut.Common.OpenWith}
+                    />
+                  )}
                   <Action
                     title="Refresh"
                     icon={Icon.ArrowClockwise}

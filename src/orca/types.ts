@@ -1,96 +1,167 @@
-/** Subset of the Orca CLI payloads this extension reads. Unlisted fields are ignored on purpose. */
+import { z } from "zod";
 
-export type AgentState = "working" | "waiting" | "done" | (string & {});
+/**
+ * Runtime schemas for the Orca CLI payloads this extension reads. Orca ships independently of the
+ * extension, so a renamed or dropped field must degrade one list item, not crash the command.
+ *
+ * Optional fields use `.catch()` rather than `.default()`: a default only fires on `undefined`, so a
+ * field that turns into `null` would fail validation and take the whole list with it.
+ */
 
-export type WorkspaceStatus = "inactive" | "active" | "working" | "permission" | (string & {});
+const timestamp = z.number().nullable().catch(null);
 
-export type WorkspaceAgent = {
-  paneKey: string;
-  state: AgentState;
-  agentType: string | null;
-  prompt: string | null;
-  taskTitle: string | null;
-  displayName: string | null;
-  toolName: string | null;
-  interrupted: boolean;
-  stateStartedAt: number | null;
-  updatedAt: number | null;
-};
+/**
+ * Drops unparseable entries instead of failing the list. A single malformed record must not make a
+ * waiting agent invisible, which is exactly what `z.array(...).catch([])` would do.
+ *
+ * The array itself stays required: a missing or renamed container is a broken contract, and turning
+ * that into an empty list would report "nobody is waiting" for an Orca that never answered.
+ */
+function arrayOfValid<S extends z.ZodType>(schema: S) {
+  return z.array(z.unknown()).transform((items) =>
+    items.flatMap((item) => {
+      const parsed = schema.safeParse(item);
+      return parsed.success ? [parsed.data as z.infer<S>] : [];
+    }),
+  );
+}
 
-export type LinkedPullRequest = { number: number; state: string };
+export const AgentSchema = z.object({
+  paneKey: z.string().catch(""),
+  state: z.string().catch("unknown"),
+  agentType: z.string().nullable().catch(null),
+  prompt: z.string().nullable().catch(null),
+  taskTitle: z.string().nullable().catch(null),
+  displayName: z.string().nullable().catch(null),
+  toolName: z.string().nullable().catch(null),
+  interrupted: z.boolean().catch(false),
+  stateStartedAt: timestamp,
+  updatedAt: timestamp,
+});
 
-export type Workspace = {
-  workspaceKind: "git" | "folder-workspace" | (string & {});
-  worktreeId: string;
-  repoId: string;
-  repo: string;
-  path: string;
-  branch: string;
-  displayName: string;
-  workspaceStatus: string | null;
-  comment: string;
-  isArchived: boolean;
-  isMainWorktree: boolean;
-  isPinned: boolean;
-  isActive: boolean;
-  unread: boolean;
-  liveTerminalCount: number;
-  lastActivityAt: number | null;
-  lastOutputAt: number | null;
-  preview: string | null;
-  status: WorkspaceStatus;
-  linkedPR: LinkedPullRequest | null;
-  linkedIssue: number | null;
-  agents: WorkspaceAgent[];
-};
+export const LinkedPullRequestSchema = z.object({
+  number: z.number(),
+  state: z.string().catch("open"),
+});
 
-export type WorkspaceListResult = { worktrees: Workspace[]; totalCount: number; truncated: boolean };
+export const WorkspaceSchema = z.object({
+  workspaceKind: z.string().catch("git"),
+  worktreeId: z.string(),
+  repoId: z.string().catch(""),
+  repo: z.string().catch(""),
+  path: z.string().catch(""),
+  branch: z.string().catch(""),
+  displayName: z.string().catch(""),
+  /** User-facing lane (e.g. `in-progress`); distinct from `status`, which tracks the agent. */
+  workspaceStatus: z.string().nullable().catch(null),
+  comment: z.string().catch(""),
+  isArchived: z.boolean().catch(false),
+  isMainWorktree: z.boolean().catch(false),
+  isPinned: z.boolean().catch(false),
+  isActive: z.boolean().catch(false),
+  unread: z.boolean().catch(false),
+  liveTerminalCount: z.number().catch(0),
+  lastActivityAt: timestamp,
+  lastOutputAt: timestamp,
+  preview: z.string().nullable().catch(null),
+  status: z.string().catch("inactive"),
+  linkedPR: LinkedPullRequestSchema.nullable().catch(null),
+  linkedIssue: z.number().nullable().catch(null),
+  // Per-workspace, so a broken agents field degrades one row rather than the whole listing.
+  agents: arrayOfValid(AgentSchema).catch([]),
+});
 
-export type Terminal = {
-  handle: string;
-  worktreeId: string;
-  worktreePath: string;
-  branch: string;
-  title: string;
-  connected: boolean;
-  writable: boolean;
-  orphaned: boolean;
-  lastOutputAt: number | null;
-  preview: string | null;
-  agentIdentity: string | null;
-};
+export const WorkspaceListSchema = z.object({
+  worktrees: arrayOfValid(WorkspaceSchema),
+  totalCount: z.number().catch(0),
+  truncated: z.boolean().catch(false),
+});
 
-export type TerminalListResult = { terminals: Terminal[]; totalCount: number; truncated: boolean };
+export const TerminalSchema = z.object({
+  handle: z.string(),
+  worktreeId: z.string().catch(""),
+  worktreePath: z.string().catch(""),
+  branch: z.string().catch(""),
+  title: z.string().catch(""),
+  connected: z.boolean().catch(false),
+  writable: z.boolean().catch(false),
+  orphaned: z.boolean().catch(false),
+  lastOutputAt: timestamp,
+  preview: z.string().nullable().catch(null),
+  agentIdentity: z.string().nullable().catch(null),
+});
 
-export type TerminalTail = {
-  handle: string;
-  status: string;
-  tail: string[];
-  truncated: boolean;
-  latestCursor: string;
-  returnedLineCount: number;
-};
+export const TerminalListSchema = z.object({
+  terminals: arrayOfValid(TerminalSchema),
+  totalCount: z.number().catch(0),
+  truncated: z.boolean().catch(false),
+});
 
-export type Repo = {
-  id: string;
-  displayName: string;
-  path: string;
-  badgeColor: string | null;
-  kind: "git" | "folder" | (string & {});
-};
+export const TerminalTailSchema = z.object({
+  terminal: z.object({
+    handle: z.string().catch(""),
+    status: z.string().catch("unknown"),
+    tail: z.array(z.string()).catch([]),
+    truncated: z.boolean().catch(false),
+    returnedLineCount: z.number().catch(0),
+  }),
+});
 
-export type Automation = {
-  id: string;
-  name: string;
-  prompt: string;
-  agentId: string;
-  enabled: boolean;
-  rrule: string;
-  nextRunAt: number | null;
-  lastRunAt?: number;
-};
+export const RepoListSchema = z.object({
+  repos: z.array(
+    z.object({
+      id: z.string(),
+      displayName: z.string().catch(""),
+      path: z.string().catch(""),
+      kind: z.string().catch("git"),
+    }),
+  ),
+});
+
+export const AutomationListSchema = z.object({
+  automations: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string().catch(""),
+      prompt: z.string().catch(""),
+      agentId: z.string().catch(""),
+      enabled: z.boolean().catch(true),
+      rrule: z.string().catch(""),
+      nextRunAt: timestamp,
+      lastRunAt: timestamp,
+    }),
+  ),
+});
+
+export const CreateWorkspaceSchema = z.object({
+  worktree: z
+    .object({
+      id: z.string().optional(),
+      path: z.string().optional(),
+      branch: z.string().optional(),
+      displayName: z.string().optional(),
+    })
+    .optional(),
+  agentTerminalHandle: z.string().optional(),
+  startupTerminal: z.object({ handle: z.string().optional() }).optional(),
+});
+
+export type WorkspaceAgent = z.infer<typeof AgentSchema>;
+export type Workspace = z.infer<typeof WorkspaceSchema>;
+export type WorkspaceList = z.infer<typeof WorkspaceListSchema>;
+export type Terminal = z.infer<typeof TerminalSchema>;
+export type TerminalList = z.infer<typeof TerminalListSchema>;
+export type TerminalTail = z.infer<typeof TerminalTailSchema>["terminal"];
+export type Repo = z.infer<typeof RepoListSchema>["repos"][number];
+export type Automation = z.infer<typeof AutomationListSchema>["automations"][number];
+export type CreateWorkspaceResult = z.infer<typeof CreateWorkspaceSchema>;
 
 /** True when the workspace is blocked on the user rather than making progress on its own. */
 export function needsAttention(workspace: Workspace): boolean {
   return workspace.status === "permission" || workspace.agents.some((agent) => agent.state === "waiting");
+}
+
+/** Archived workspaces keep reporting agent state, so every reader has to drop them, not just the search list. */
+export function isVisible(workspace: Workspace): boolean {
+  return !workspace.isArchived;
 }

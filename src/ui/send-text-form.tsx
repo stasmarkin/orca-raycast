@@ -1,6 +1,7 @@
 import { Action, ActionPanel, Form, Icon, showToast, Toast, useNavigation } from "@raycast/api";
 import { useState } from "react";
 import { sendToTerminal } from "../orca/terminals";
+import { describeError } from "../orca/invoke";
 import { revealTerminalInOrca } from "../orca/reveal";
 
 export function SendTextForm(props: { handle: string; title: string; onSent?: () => void }) {
@@ -19,13 +20,26 @@ export function SendTextForm(props: { handle: string; title: string; onSent?: ()
       await sendToTerminal(props.handle, text.replace(/\n/g, " "), true);
       await showToast({ style: Toast.Style.Success, title: "Sent", message: props.title });
       props.onSent?.();
-      if (options.reveal) await revealTerminalInOrca(props.handle);
-      pop();
     } catch (error) {
-      await showToast({ style: Toast.Style.Failure, title: "Send failed", message: String(error) });
+      await showToast({ style: Toast.Style.Failure, title: "Send failed", message: describeError(error) });
+      return;
     } finally {
       setIsSending(false);
     }
+
+    // The message is already delivered; a failed reveal must not read as a failed send.
+    if (options.reveal) {
+      try {
+        await revealTerminalInOrca(props.handle);
+      } catch (error) {
+        await showToast({
+          style: Toast.Style.Failure,
+          title: "Sent, but could not switch to Orca",
+          message: describeError(error),
+        });
+      }
+    }
+    pop();
   }
 
   return (

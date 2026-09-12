@@ -1,14 +1,15 @@
-import { List } from "@raycast/api";
+import { Color, Icon, List } from "@raycast/api";
 import { useMemo, useState } from "react";
 import { needsAttention, type Workspace } from "./orca/types";
 import { useOrcaWorkspaces } from "./ui/use-orca-workspaces";
 import { WorkspaceActions } from "./ui/workspace-actions";
+import { OrcaEmptyView, OrcaErrorBanner } from "./ui/orca-empty-view";
 import { lastPreviewLine, statusIcon, workspaceAccessories } from "./ui/workspace-presentation";
 
 type Filter = "all" | "attention" | "active" | "pinned";
 
 export default function Command() {
-  const { workspaces, terminalsFor, isLoading, revalidate } = useOrcaWorkspaces();
+  const { workspaces, terminalsFor, truncated, totalCount, isLoading, error, revalidate } = useOrcaWorkspaces();
   const [filter, setFilter] = useState<Filter>("all");
 
   const visible = useMemo(() => workspaces.filter((w) => matchesFilter(w, filter)), [workspaces, filter]);
@@ -27,7 +28,22 @@ export default function Command() {
         </List.Dropdown>
       }
     >
-      <List.EmptyView title="No workspaces" description="Nothing matches this filter." />
+      <OrcaEmptyView
+        error={error}
+        emptyTitle="No workspaces"
+        emptyDescription="Nothing matches this filter."
+        onRetry={revalidate}
+      />
+      <OrcaErrorBanner error={error} hasData={workspaces.length > 0} onRetry={revalidate} />
+      {truncated && (
+        <List.Section title="Incomplete">
+          <List.Item
+            icon={{ source: Icon.ExclamationMark, tintColor: Color.Orange }}
+            title={`Orca returned only ${workspaces.length} of ${totalCount} workspaces`}
+            subtitle="Some workspaces are hidden from this list"
+          />
+        </List.Section>
+      )}
       {grouped.map(([repo, items]) => (
         <List.Section key={repo} title={repo} subtitle={String(items.length)}>
           {items.map((workspace) => (
@@ -50,7 +66,6 @@ export default function Command() {
 }
 
 function matchesFilter(workspace: Workspace, filter: Filter): boolean {
-  if (workspace.isArchived) return false;
   switch (filter) {
     case "attention":
       return needsAttention(workspace);

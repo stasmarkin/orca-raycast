@@ -2,10 +2,12 @@ import { Action, ActionPanel, Color, Icon, List, showToast, Toast, Keyboard } fr
 import { useCachedPromise } from "@raycast/utils";
 import { listAutomations, runAutomation } from "./orca/automations";
 import type { Automation } from "./orca/types";
+import { describeError } from "./orca/invoke";
 import { commandDeeplink } from "./ui/deeplink";
+import { OrcaEmptyView, OrcaErrorBanner } from "./ui/orca-empty-view";
 
 export default function Command() {
-  const { data, isLoading, revalidate } = useCachedPromise(listAutomations, [], {
+  const { data, isLoading, error, revalidate } = useCachedPromise(listAutomations, [], {
     initialData: [] as Automation[],
     keepPreviousData: true,
   });
@@ -20,13 +22,20 @@ export default function Command() {
     } catch (error) {
       toast.style = Toast.Style.Failure;
       toast.title = "Run failed";
-      toast.message = String(error);
+      toast.message = describeError(error);
     }
   }
 
   return (
     <List isLoading={isLoading} searchBarPlaceholder="Search automations">
-      <List.EmptyView title="No automations" description="Create one in Orca first." />
+      <OrcaEmptyView
+        error={error}
+        emptyTitle="No automations"
+        emptyDescription="Create one in Orca first."
+        emptyIcon={{ source: Icon.Clock, tintColor: Color.SecondaryText }}
+        onRetry={revalidate}
+      />
+      <OrcaErrorBanner error={error} hasData={data.length > 0} onRetry={revalidate} />
       {data.map((automation) => (
         <List.Item
           key={automation.id}

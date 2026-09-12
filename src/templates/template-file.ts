@@ -36,7 +36,7 @@ const STARTER_FILE: z.infer<typeof TemplateFileSchema> = {
       repo: "name:orca",
       namePattern: "review-{slug}",
       agent: "claude",
-      prompt: "Сделай ревью {input}. Начни с анализа и плана, к коду без ок не приступай, не коммить.",
+      prompt: "Review {input}. Start with analysis and a plan; do not write code or commit without an OK.",
       noParent: true,
       requiresInput: true,
     },
@@ -75,12 +75,12 @@ export async function readTemplates(): Promise<WorkspaceTemplate[]> {
 
 /** Writes the starter file so the user has something to edit; never overwrites an existing one. */
 export async function ensureTemplateFile(): Promise<string> {
+  await mkdir(dirname(TEMPLATE_FILE), { recursive: true });
   try {
-    await readFile(TEMPLATE_FILE, "utf8");
+    // `wx` makes "create only if absent" atomic — a check-then-write would race an editor saving the file.
+    await writeFile(TEMPLATE_FILE, `${JSON.stringify(STARTER_FILE, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-    await mkdir(dirname(TEMPLATE_FILE), { recursive: true });
-    await writeFile(TEMPLATE_FILE, `${JSON.stringify(STARTER_FILE, null, 2)}\n`, "utf8");
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
   }
   return TEMPLATE_FILE;
 }

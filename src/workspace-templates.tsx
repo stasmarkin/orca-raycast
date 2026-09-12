@@ -5,6 +5,7 @@ import { useState } from "react";
 import { launchTemplate } from "./templates/launch-template";
 import { ensureTemplateFile, readTemplates, TEMPLATE_FILE, type WorkspaceTemplate } from "./templates/template-file";
 import { revealTerminalInOrca } from "./orca/reveal";
+import { describeError, OrcaTimeoutError } from "./orca/invoke";
 import { commandDeeplink } from "./ui/deeplink";
 
 export default function Command() {
@@ -71,27 +72,45 @@ export default function Command() {
 function RunTemplateForm(props: { template: WorkspaceTemplate }) {
   const { pop } = useNavigation();
   const [input, setInput] = useState("");
+  const [inputError, setInputError] = useState<string | undefined>();
   const [isRunning, setIsRunning] = useState(false);
 
   async function submit() {
+    if (props.template.requiresInput && !input.trim()) {
+      setInputError("Required by this template");
+      return;
+    }
+
     setIsRunning(true);
     const toast = await showToast({ style: Toast.Style.Animated, title: `Creating ${props.template.title}` });
+    let created;
     try {
-      const result = await launchTemplate(props.template, input.trim());
+      created = await launchTemplate(props.template, input);
       toast.style = Toast.Style.Success;
       toast.title = "Workspace created";
-      toast.message = result.worktree?.path;
-
-      const handle = result.agentTerminalHandle ?? result.startupTerminal?.handle;
-      if (props.template.activate && handle) await revealTerminalInOrca(handle);
-      pop();
+      toast.message = created.worktree?.path;
     } catch (error) {
       toast.style = Toast.Style.Failure;
-      toast.title = "Template failed";
-      toast.message = String(error);
+      toast.title = error instanceof OrcaTimeoutError ? "Still creating in Orca" : "Template failed";
+      toast.message = describeError(error);
+      return;
     } finally {
       setIsRunning(false);
     }
+
+    const handle = created.agentTerminalHandle ?? created.startupTerminal?.handle;
+    if (props.template.activate && handle) {
+      try {
+        await revealTerminalInOrca(handle);
+      } catch (error) {
+        await showToast({
+          style: Toast.Style.Failure,
+          title: "Created, but could not switch to Orca",
+          message: describeError(error),
+        });
+      }
+    }
+    pop();
   }
 
   return (
@@ -109,7 +128,11 @@ function RunTemplateForm(props: { template: WorkspaceTemplate }) {
         title="Input"
         placeholder="Fills {input} and {slug} in the template"
         value={input}
-        onChange={setInput}
+        error={inputError}
+        onChange={(value) => {
+          setInput(value);
+          setInputError(undefined);
+        }}
         autoFocus
       />
       <Form.Description text={`Name: ${props.template.namePattern}`} />

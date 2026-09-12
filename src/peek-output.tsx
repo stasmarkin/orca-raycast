@@ -1,5 +1,6 @@
 import { Icon } from "@raycast/api";
 import { basename } from "node:path";
+import { canReceiveInput } from "./orca/terminals";
 import { TerminalPicker } from "./ui/terminal-picker";
 import { AgentOutput } from "./ui/agent-output";
 
@@ -10,7 +11,11 @@ export default function Command() {
       actionTitle="Read Output"
       actionIcon={Icon.Terminal}
       target={(terminal) => (
-        <AgentOutput handle={terminal.handle} title={terminal.title || basename(terminal.worktreePath)} />
+        <AgentOutput
+          handle={terminal.handle}
+          title={terminal.title || basename(terminal.worktreePath)}
+          canSend={canReceiveInput(terminal)}
+        />
       )}
     />
   );
