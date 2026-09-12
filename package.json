@@ -1,0 +1,148 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "orca",
+  "title": "Orca",
+  "description": "Control Orca workspaces, agents and automations from Raycast",
+  "icon": "orca-icon.png",
+  "author": "stasmarkin",
+  "license": "MIT",
+  "categories": [
+    "Developer Tools"
+  ],
+  "platforms": [
+    "macOS"
+  ],
+  "preferences": [
+    {
+      "name": "orcaPath",
+      "title": "Orca CLI",
+      "description": "Path to the orca binary. Leave empty to auto-detect.",
+      "type": "textfield",
+      "required": false,
+      "placeholder": "/usr/local/bin/orca"
+    },
+    {
+      "name": "environment",
+      "title": "Environment",
+      "description": "Saved remote Orca runtime to target. Leave empty for the local runtime.",
+      "type": "textfield",
+      "required": false,
+      "placeholder": "local"
+    }
+  ],
+  "commands": [
+    {
+      "name": "search-workspaces",
+      "title": "Search Workspaces",
+      "subtitle": "Orca",
+      "description": "Browse Orca workspaces with live agent status",
+      "mode": "view"
+    },
+    {
+      "name": "needs-you",
+      "title": "Agents Needing You",
+      "subtitle": "Orca",
+      "description": "Workspaces where an agent is waiting for your answer",
+      "mode": "view"
+    },
+    {
+      "name": "create-workspace",
+      "title": "Create Workspace",
+      "subtitle": "Orca",
+      "description": "Create a workspace and optionally start an agent with a brief",
+      "mode": "view"
+    },
+    {
+      "name": "send-to-agent",
+      "title": "Send to Agent",
+      "subtitle": "Orca",
+      "description": "Send text to an agent terminal",
+      "mode": "view"
+    },
+    {
+      "name": "peek-output",
+      "title": "Peek Agent Output",
+      "subtitle": "Orca",
+      "description": "Read the tail of an agent terminal",
+      "mode": "view"
+    },
+    {
+      "name": "run-automation",
+      "title": "Run Automation",
+      "subtitle": "Orca",
+      "description": "Run a scheduled Orca automation now",
+      "mode": "view"
+    },
+    {
+      "name": "run-automation-now",
+      "title": "Run Automation Now",
+      "subtitle": "Orca",
+      "description": "Run one Orca automation by id or name",
+      "mode": "no-view",
+      "arguments": [
+        {
+          "name": "automation",
+          "placeholder": "automation",
+          "type": "text",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "workspace-templates",
+      "title": "Workspace Templates",
+      "subtitle": "Orca",
+      "description": "Run a saved workspace preset or bind it to a hotkey",
+      "mode": "view"
+    },
+    {
+      "name": "run-template",
+      "title": "Run Workspace Template",
+      "subtitle": "Orca",
+      "description": "Create a workspace from a saved template",
+      "mode": "no-view",
+      "arguments": [
+        {
+          "name": "template",
+          "placeholder": "template",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "input",
+          "placeholder": "input",
+          "type": "text",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "agents-menu-bar",
+      "title": "Orca Agents",
+      "subtitle": "Orca",
+      "description": "Menu bar item showing agents that need you",
+      "mode": "menu-bar",
+      "interval": "1m"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^2.3.1",
+    "@raycast/utils": "^2.3.1",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^2.2.0",
+    "@types/node": "22.19.17",
+    "@types/react": "19.0.10",
+    "eslint": "^9.39.5",
+    "prettier": "^3.9.6",
+    "typescript": "^5.9.0"
+  },
+  "scripts": {
+    "build": "ray build",
+    "dev": "ray develop",
+    "lint": "ray lint",
+    "fix-lint": "ray lint --fix",
+    "typecheck": "tsc --noEmit"
+  }
+}

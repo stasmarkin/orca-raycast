@@ -1,0 +1,47 @@
+import { accessSync, constants } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { getPreferenceValues } from "@raycast/api";
+
+// Raycast spawns extensions with a minimal PATH, so a bare `orca` is not resolvable.
+const CANDIDATES = [
+  "/usr/local/bin/orca",
+  "/opt/homebrew/bin/orca",
+  join(homedir(), ".local/bin/orca"),
+  join(homedir(), "bin/orca"),
+];
+
+let cached: string | undefined;
+
+export class OrcaBinaryNotFound extends Error {
+  constructor() {
+    super("Orca CLI not found. Set its path in the extension preferences.");
+    this.name = "OrcaBinaryNotFound";
+  }
+}
+
+function isExecutable(path: string): boolean {
+  try {
+    accessSync(path, constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function resolveOrcaBinary(): string {
+  if (cached) return cached;
+
+  const { orcaPath } = getPreferenceValues<{ orcaPath?: string }>();
+  const configured = orcaPath?.trim();
+  if (configured) {
+    if (!isExecutable(configured)) throw new OrcaBinaryNotFound();
+    cached = configured;
+    return cached;
+  }
+
+  const found = CANDIDATES.find(isExecutable);
+  if (!found) throw new OrcaBinaryNotFound();
+  cached = found;
+  return cached;
+}
