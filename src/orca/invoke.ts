@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { getPreferenceValues } from "@raycast/api";
 import type { z } from "zod";
+import { toolEnv } from "../tool-search-path";
 import { resolveOrcaBinary } from "./binary";
 
 const run = promisify(execFile);
@@ -69,6 +70,7 @@ export async function invokeOrca<S extends z.ZodType>(
       maxBuffer: MAX_BUFFER,
       timeout: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
       encoding: "utf8",
+      env: toolEnv(),
     });
     stdout = result.stdout;
   } catch (error) {
