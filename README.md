@@ -16,7 +16,6 @@ The extension talks to Orca exclusively through the public `orca` CLI (`orca <co
 | **Peek Agent Output** | Read the tail of an agent terminal as a detail view. |
 | **Run Automation** / **Run Automation Now** | Browse Orca automations and run one; save any of them as a hotkey. |
 | **Run Task** / **Run Workspace Template** | Type a template id and its input, toggle modifiers, launch. |
-| **New Task** | The same launch as a form: pick the workflow, write a multi-line brief, see the prompt before it runs. |
 
 ## Run Task
 
@@ -40,10 +39,6 @@ Modifiers toggle with `⌘1` / `⌘2` (or from `⌘K`) and show as tags in that 
 A template's `defaultModifiers` are pre-selected; toggling on this screen overrides them for that launch.
 
 Templates that do not name a `repo` use the repo picked in the search bar dropdown, which is remembered between launches (including for hotkey launches, which have no UI).
-
-## New Task
-
-The same launch as a form, for briefs that do not fit on one line: a workflow dropdown, a multi-line brief, a checkbox per modifier, and the resulting prompt and workspace name at the bottom. It reads the same templates and runs the same launch as **Run Task** — the two screens exist side by side so the one that survives daily use can be picked later.
 
 ## Workspace templates
 

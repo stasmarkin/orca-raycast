@@ -1,6 +1,8 @@
 # Task launch screens: Run Task and New Task
 
-Status: approved, not implemented. Date: 2026-09-21.
+Status: implemented, then decided. Date: 2026-09-21.
+
+**Outcome:** both screens were built and tried the same day. `Run Task` won and `New Task` was deleted; the shared pieces it forced out (`resolveModifiers`, `previewTemplate`, `launchWithToasts`, the clipboard read) stayed, because the detail pane is built on them. The rest of this document describes the comparison as it was designed.
 
 ## Problem
 

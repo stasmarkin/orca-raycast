@@ -104,13 +104,6 @@
       "mode": "view"
     },
     {
-      "name": "new-task",
-      "title": "New Task",
-      "subtitle": "Orca",
-      "description": "Pick a workflow in a form, write the brief, see the prompt before it runs",
-      "mode": "view"
-    },
-    {
       "name": "run-template",
       "title": "Run Workspace Template",
       "subtitle": "Orca",
