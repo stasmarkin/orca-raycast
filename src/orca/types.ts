@@ -107,6 +107,10 @@ export const TerminalTailSchema = z.object({
   }),
 });
 
+export const CreateTerminalSchema = z.object({
+  terminal: z.object({ handle: z.string(), worktreeId: z.string().catch("") }),
+});
+
 export const RepoListSchema = z.object({
   repos: z.array(
     z.object({

@@ -10,3 +10,12 @@ export function getPreferenceValues<T>(): T {
 export const Clipboard = {
   readText: async (): Promise<string | undefined> => undefined,
 };
+
+const storage = new Map<string, string>();
+
+export const LocalStorage = {
+  getItem: async <T>(key: string): Promise<T | undefined> => storage.get(key) as T | undefined,
+  setItem: async (key: string, value: string): Promise<void> => {
+    storage.set(key, value);
+  },
+};

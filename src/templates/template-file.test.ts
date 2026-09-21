@@ -10,8 +10,8 @@ describe("readTemplates", () => {
 
   it("creates a starter file that parses", async () => {
     const templates = await readTemplates();
-    expect(templates).toHaveLength(1);
-    expect(templates[0]?.id).toBe("review");
+    expect(templates.map((template) => template.id)).toEqual(["pp", "review"]);
+    expect(templates[0]?.defaultModifiers).toEqual(["pin"]);
   });
 
   it("leaves an existing file untouched", async () => {
@@ -39,6 +39,20 @@ describe("readTemplates", () => {
 
     writeFileSync(TEMPLATE_FILE, JSON.stringify({ templates: [{ id: "a", title: "A" }] }));
     await expect(readTemplates()).rejects.toThrow(/namePattern/);
+  });
+
+  it("rejects an arc template without a project", async () => {
+    writeFileSync(
+      TEMPLATE_FILE,
+      JSON.stringify({ templates: [{ id: "a", title: "A", namePattern: "x", worktree: "arc" }] }),
+    );
+    await expect(readTemplates()).rejects.toThrow(/project/);
+
+    writeFileSync(
+      TEMPLATE_FILE,
+      JSON.stringify({ templates: [{ id: "a", title: "A", namePattern: "x", worktree: "arc", project: "pp" }] }),
+    );
+    expect((await readTemplates())[0]?.project).toBe("pp");
   });
 });
 

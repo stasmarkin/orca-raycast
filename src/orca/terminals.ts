@@ -1,6 +1,13 @@
 import { z } from "zod";
 import { invokeOrca } from "./invoke";
-import { TerminalListSchema, TerminalTailSchema, type Terminal, type TerminalList, type TerminalTail } from "./types";
+import {
+  CreateTerminalSchema,
+  TerminalListSchema,
+  TerminalTailSchema,
+  type Terminal,
+  type TerminalList,
+  type TerminalTail,
+} from "./types";
 
 const LIST_LIMIT = 2000;
 
@@ -42,6 +49,23 @@ export async function sendToTerminal(handle: string, text: string, submit: boole
   const args = ["terminal", "send", `--terminal=${handle}`, `--text=${text}`];
   if (submit) args.push("--enter");
   await invokeOrca(args, z.unknown());
+}
+
+/** Creates a terminal running `command`; used to launch an agent Orca's own `--agent` flag cannot configure. */
+export async function createTerminal(workspaceSelector: string, command: string, title?: string): Promise<string> {
+  const args = ["terminal", "create", `--worktree=${workspaceSelector}`, `--command=${command}`];
+  if (title) args.push(`--title=${title}`);
+  const result = await invokeOrca(args, CreateTerminalSchema, { timeoutMs: 60_000 });
+  return result.terminal.handle;
+}
+
+/** Waits for the agent TUI to finish booting, so the brief is not typed into a prompt that is not ready. */
+export async function waitForTuiIdle(handle: string, timeoutMs: number): Promise<void> {
+  await invokeOrca(
+    ["terminal", "wait", `--terminal=${handle}`, "--for=tui-idle", `--timeout-ms=${timeoutMs}`],
+    z.unknown(),
+    { timeoutMs: timeoutMs + 15_000 },
+  );
 }
 
 export async function switchToTerminal(handle: string): Promise<void> {

@@ -1,34 +1,55 @@
 import { LaunchProps, showHUD, showToast, Toast } from "@raycast/api";
-import { findTemplate, launchTemplate } from "./templates/launch-template";
-import { readTemplates } from "./templates/template-file";
-import { describeError, OrcaTimeoutError } from "./orca/invoke";
+import { findTemplate, launchTemplate, stillRunning } from "./templates/launch-template";
+import { parseModifiers } from "./templates/modifiers";
+import { readTemplateFile } from "./templates/template-file";
+import { readDefaultRepo } from "./templates/repo-selection";
+import { describeError } from "./orca/invoke";
 import { revealTerminalInOrca } from "./orca/reveal";
 
-export default async function Command(props: LaunchProps<{ arguments: { template: string; input?: string } }>) {
+export default async function Command(
+  props: LaunchProps<{ arguments: { template: string; input?: string; modifiers?: string } }>,
+) {
   const query = props.arguments.template.trim();
   const input = props.arguments.input?.trim() ?? "";
 
-  let created;
+  let outcome;
   let template;
   try {
-    template = findTemplate(await readTemplates(), query);
+    const file = await readTemplateFile();
+    template = findTemplate(file.templates, query);
+    const modifiers = props.arguments.modifiers
+      ? parseModifiers(props.arguments.modifiers)
+      : (template.defaultModifiers ?? []);
+
     await showToast({ style: Toast.Style.Animated, title: `Creating ${template.title}` });
-    created = await launchTemplate(template, input);
+    outcome = await launchTemplate(template, input, {
+      modifiers,
+      orchestrator: file.orchestrator,
+      // No UI here, so fall back to whatever repo was last used on the run screen.
+      repoSelector: await readDefaultRepo(),
+    });
   } catch (error) {
     await showToast({
       style: Toast.Style.Failure,
-      title: error instanceof OrcaTimeoutError ? "Still creating in Orca" : "Template failed",
+      title: stillRunning(error) ? "Still creating in Orca" : "Template failed",
       message: describeError(error),
     });
     return;
   }
 
-  await showHUD(`🚀 ${created.worktree?.displayName ?? template.title}`);
+  if (outcome.warnings.length > 0) {
+    await showToast({
+      style: Toast.Style.Failure,
+      title: "Created with problems",
+      message: outcome.warnings.join("; "),
+    });
+  } else {
+    await showHUD(`🚀 ${outcome.result.worktree?.displayName ?? template.title}`);
+  }
 
-  const handle = created.agentTerminalHandle ?? created.startupTerminal?.handle;
-  if (!template.activate || !handle) return;
+  if (!template.activate || !outcome.handle) return;
   try {
-    await revealTerminalInOrca(handle);
+    await revealTerminalInOrca(outcome.handle);
   } catch (error) {
     await showToast({
       style: Toast.Style.Failure,

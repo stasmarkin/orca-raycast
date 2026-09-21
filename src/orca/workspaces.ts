@@ -61,6 +61,10 @@ export async function removeWorkspace(worktreeId: string, options: { force: bool
   await invokeOrca(args, z.unknown(), { timeoutMs: 120_000 });
 }
 
+export async function pinWorkspace(selector: string): Promise<void> {
+  await invokeOrca(["worktree", "set", `--worktree=${selector}`, "--pin"], z.unknown());
+}
+
 /** `id:` is the only form scoped to one repo, so it can never resolve ambiguously. */
 export function workspaceSelector(worktreeId: string): string {
   return `id:${worktreeId}`;

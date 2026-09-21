@@ -22,6 +22,14 @@
       "placeholder": "/usr/local/bin/orca"
     },
     {
+      "name": "wtPath",
+      "title": "wt CLI",
+      "description": "Path to the wt binary, used by templates with \"worktree\": \"arc\". Leave empty to auto-detect.",
+      "type": "textfield",
+      "required": false,
+      "placeholder": "/usr/local/bin/wt"
+    },
+    {
       "name": "environment",
       "title": "Environment",
       "description": "Saved remote Orca runtime to target. Leave empty for the local runtime.",
@@ -90,9 +98,9 @@
     },
     {
       "name": "workspace-templates",
-      "title": "Workspace Templates",
+      "title": "Run Task",
       "subtitle": "Orca",
-      "description": "Run a saved workspace preset or bind it to a hotkey",
+      "description": "Type a template id and its input, toggle modifiers, launch",
       "mode": "view"
     },
     {
@@ -111,6 +119,12 @@
         {
           "name": "input",
           "placeholder": "input",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "modifiers",
+          "placeholder": "pin,huge",
           "type": "text",
           "required": false
         }
