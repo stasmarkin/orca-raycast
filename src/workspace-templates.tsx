@@ -1,38 +1,33 @@
 import { Action, ActionPanel, Color, Icon, Keyboard, List, showToast, Toast } from "@raycast/api";
-import { useCachedPromise } from "@raycast/utils";
+import { useCachedPromise, usePromise } from "@raycast/utils";
 import { useMemo, useState } from "react";
-import { launchTemplate, stillRunning } from "./templates/launch-template";
-import { MODIFIERS, type ModifierId } from "./templates/modifiers";
+import { MODIFIERS, resolveModifiers, type ModifierOverrides } from "./templates/modifiers";
 import { matchTemplates, parseRunQuery } from "./templates/run-query";
+import { previewTemplate } from "./templates/template-preview";
 import { ensureTemplateFile, readTemplateFile, TEMPLATE_FILE, type WorkspaceTemplate } from "./templates/template-file";
-import { writeDefaultRepo } from "./templates/repo-selection";
 import { listRepos } from "./orca/workspaces";
-import { revealTerminalInOrca } from "./orca/reveal";
-import { describeError } from "./orca/invoke";
+import { readClipboardOnce } from "./ui/clipboard-once";
 import { commandDeeplink } from "./ui/deeplink";
+import { launchWithToasts } from "./ui/launch-with-toasts";
 import { OrcaErrorBanner } from "./ui/orca-empty-view";
+import { TemplateDetail } from "./ui/template-detail";
 
 export default function Command() {
   const { data, isLoading, error, revalidate } = useCachedPromise(readTemplateFile, [], {
     initialData: { templates: [] as WorkspaceTemplate[] },
   });
   const { data: repos } = useCachedPromise(listRepos, [], { initialData: [] });
+  const { data: clipboard = "" } = usePromise(readClipboardOnce);
   const [searchText, setSearchText] = useState("");
-  const [toggled, setToggled] = useState<Partial<Record<ModifierId, boolean>>>({});
+  const [overrides, setOverrides] = useState<ModifierOverrides>({});
   const [repo, setRepo] = useState("");
   const [isRunning, setIsRunning] = useState(false);
 
   const { templateQuery, input } = useMemo(() => parseRunQuery(searchText), [searchText]);
   const matches = useMemo(() => matchTemplates(data.templates, templateQuery), [data.templates, templateQuery]);
 
-  /** A template's defaults apply until the user overrides that modifier on this screen. */
-  function modifiersFor(template: WorkspaceTemplate): ModifierId[] {
-    const defaults = new Set(template.defaultModifiers ?? []);
-    return MODIFIERS.filter(({ id }) => toggled[id] ?? defaults.has(id)).map(({ id }) => id);
-  }
-
   async function run(template: WorkspaceTemplate) {
-    const modifiers = modifiersFor(template);
+    const modifiers = resolveModifiers(template, overrides);
     if (template.requiresInput && !input) {
       await showToast({
         style: Toast.Style.Failure,
@@ -52,44 +47,21 @@ export default function Command() {
     }
 
     setIsRunning(true);
-    const toast = await showToast({ style: Toast.Style.Animated, title: `Creating ${template.title}` });
-    let outcome;
     try {
-      if (repo) await writeDefaultRepo(repo);
-      outcome = await launchTemplate(template, input, {
+      await launchWithToasts(template, input, {
         modifiers,
         orchestrator: data.orchestrator,
         repoSelector: repo,
       });
-    } catch (launchError) {
-      toast.style = Toast.Style.Failure;
-      toast.title = stillRunning(launchError) ? "Still creating in Orca" : "Template failed";
-      toast.message = describeError(launchError);
-      return;
     } finally {
       setIsRunning(false);
-    }
-
-    toast.style = outcome.warnings.length > 0 ? Toast.Style.Failure : Toast.Style.Success;
-    toast.title = outcome.warnings.length > 0 ? "Created with problems" : "Workspace created";
-    toast.message = outcome.warnings.join("; ") || outcome.result.worktree?.path;
-
-    if (template.activate && outcome.handle) {
-      try {
-        await revealTerminalInOrca(outcome.handle);
-      } catch (revealError) {
-        await showToast({
-          style: Toast.Style.Failure,
-          title: "Created, but could not switch to Orca",
-          message: describeError(revealError),
-        });
-      }
     }
   }
 
   return (
     <List
       isLoading={isLoading || isRunning}
+      isShowingDetail={matches.length > 0}
       filtering={false}
       onSearchTextChange={setSearchText}
       searchBarPlaceholder="template then input, e.g. pp STARTREK-789"
@@ -128,23 +100,22 @@ export default function Command() {
       )}
 
       {matches.map((template) => {
-        const active = modifiersFor(template);
+        const active = resolveModifiers(template, overrides);
         return (
           <List.Item
             key={template.id}
             icon={{ source: Icon.Rocket, tintColor: Color.Blue }}
             title={template.id}
-            subtitle={input ? `${template.title} — ${input}` : template.title}
-            accessories={[
-              ...MODIFIERS.map((modifier) => ({
-                tag: {
-                  value: modifier.title,
-                  color: active.includes(modifier.id) ? Color.Green : Color.SecondaryText,
-                },
-                tooltip: `⌘${modifier.key} — ${modifier.description}`,
-              })),
-              ...(template.requiresInput && !input ? [{ icon: Icon.ExclamationMark, tooltip: "Needs input" }] : []),
-            ]}
+            detail={
+              <TemplateDetail
+                template={template}
+                preview={previewTemplate(template, input, clipboard)}
+                active={active}
+                orchestrator={data.orchestrator}
+                repoName={repoName(repos, repo)}
+                missingInput={Boolean(template.requiresInput) && !input}
+              />
+            }
             actions={
               <ActionPanel>
                 <Action title={`Run ${template.id}`} icon={Icon.Play} onAction={() => run(template)} />
@@ -156,7 +127,7 @@ export default function Command() {
                       icon={active.includes(modifier.id) ? Icon.CheckCircle : Icon.Circle}
                       shortcut={{ modifiers: ["cmd"], key: modifier.key }}
                       onAction={() =>
-                        setToggled((current) => ({ ...current, [modifier.id]: !active.includes(modifier.id) }))
+                        setOverrides((current) => ({ ...current, [modifier.id]: !active.includes(modifier.id) }))
                       }
                     />
                   ))}
@@ -194,4 +165,10 @@ export default function Command() {
       })}
     </List>
   );
+}
+
+function repoName(repos: { id: string; displayName: string; path: string }[], selector: string): string | undefined {
+  if (!selector) return undefined;
+  const match = repos.find((entry) => `id:${entry.id}` === selector);
+  return match ? match.displayName || match.path : selector;
 }

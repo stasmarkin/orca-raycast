@@ -27,6 +27,17 @@ export const MODIFIERS: ModifierSpec[] = [
   },
 ];
 
+export type ModifierOverrides = Partial<Record<ModifierId, boolean>>;
+
+/** A template's defaults apply until the user overrides that modifier on the launch screen. */
+export function resolveModifiers(
+  template: { defaultModifiers?: ModifierId[] },
+  overrides: ModifierOverrides = {},
+): ModifierId[] {
+  const defaults = new Set(template.defaultModifiers ?? []);
+  return MODIFIER_IDS.filter((id) => overrides[id] ?? defaults.has(id));
+}
+
 export function isModifierId(value: string): value is ModifierId {
   return (MODIFIER_IDS as readonly string[]).includes(value);
 }

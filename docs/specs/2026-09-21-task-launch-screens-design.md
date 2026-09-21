@@ -35,7 +35,7 @@ Submit runs the same launch path as `Run Task`: the same toasts, the same partia
 Both screens call the existing `launchTemplate` and read the same `templates.json`. What they cannot share today is the answer to "what would this launch do", which currently lives inside `workspace-templates.tsx`. That moves into two small pieces:
 
 - `resolveModifiers(template, overrides)` in `src/templates/modifiers.ts` — the template's defaults, overridden per modifier by what the user toggled on the screen.
-- `src/templates/template-preview.ts` — given a template, the input and the resolved modifiers, returns the expanded prompt, the worktree name (through `toWtWorktreeName` for arc templates, the raw expanded pattern otherwise, since Orca allows spaces) and the target description.
+- `src/templates/template-preview.ts` — given a template, the input and the clipboard, returns the expanded prompt and the worktree name (through `toWtWorktreeName` for arc templates, the raw expanded pattern otherwise, since Orca allows spaces). Agent, target and base branch are plain template fields, so the screens render them directly rather than through this module.
 
 `expandPlaceholders` gains an optional `clipboard` value in its context. When present it uses that instead of reading the clipboard itself.
 
