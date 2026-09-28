@@ -46,7 +46,7 @@ export function TemplateDetail(props: TemplateDetailProps) {
             <List.Item.Detail.Metadata.Label title="Base branch" text={template.baseBranch} />
           )}
           <List.Item.Detail.Metadata.Label
-            title={template.worktree === "main" ? "Terminal title" : "Workspace name"}
+            title="Workspace name"
             text={preview.worktreeName}
             icon={missingInput ? Icon.ExclamationMark : undefined}
           />
@@ -75,15 +75,13 @@ export function TemplateDetail(props: TemplateDetailProps) {
 
 function describeTarget(template: WorkspaceTemplate, repoName: string | undefined): string {
   if (template.worktree === "arc") return `${template.project} (arc)`;
-  const repo = template.repo ?? repoName ?? "pick one in ⌘P";
-  return template.worktree === "main" ? `${repo} — repo folder, no checkout` : repo;
+  return template.repo ?? repoName ?? "pick one in ⌘P";
 }
 
 /** Template switches that change what the launch does, as short tags. */
 function describeSettings(template: WorkspaceTemplate): string[] {
-  // Only Orca's own `worktree create` takes these: `wt` builds an arc checkout its own way, and a
-  // `main` launch creates nothing at all, so showing them anywhere else would lie.
-  const viaOrca = template.worktree === undefined || template.worktree === "orca";
+  // `wt` builds an arc checkout its own way: it takes neither flag, so showing them would lie.
+  const viaOrca = template.worktree !== "arc";
   return [
     ...(template.noParent && viaOrca ? ["no parent"] : []),
     ...(template.setup && viaOrca ? [`setup: ${template.setup}`] : []),

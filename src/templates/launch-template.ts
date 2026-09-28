@@ -1,4 +1,4 @@
-import { createWorkspace, findMainWorkspace, pinWorkspace, workspaceSelector } from "../orca/workspaces";
+import { createWorkspace, pinWorkspace, workspaceSelector } from "../orca/workspaces";
 import { createTerminal, sendToTerminal, terminalAcceptsInput, waitForTuiIdle } from "../orca/terminals";
 import type { CreateWorkspaceResult } from "../orca/types";
 import { OrcaTimeoutError } from "../orca/invoke";
@@ -57,16 +57,6 @@ export async function launchTemplate(
   const agent = isHuge ? undefined : template.agent;
   const brief = isHuge ? undefined : prompt;
 
-  if (template.worktree === "main") {
-    return runInMainCheckout(template, {
-      title: name,
-      command: isHuge ? (options.orchestrator?.command ?? DEFAULT_ORCHESTRATOR_COMMAND) : template.agent,
-      brief: isHuge ? briefWithOrchestratorPrefix(prompt ?? trimmed, options.orchestrator) : prompt,
-      repoSelector: resolveRepoSelector(template.repo, options.repoSelector),
-      pin: modifiers.includes("pin"),
-    });
-  }
-
   const created =
     template.worktree === "arc"
       ? await createArcWorkspace(template, { name, agent, prompt: brief })
@@ -114,50 +104,6 @@ export async function launchTemplate(
   }
 
   return { result, handle, warnings };
-}
-
-/**
- * No checkout: the agent starts in the folder the repository itself lives in. For a question that
- * only reads the code, a branch of its own is a cost with nothing to show for it — but every launch
- * here shares one working tree, so two agents editing at once would collide.
- */
-async function runInMainCheckout(
-  template: WorkspaceTemplate,
-  request: {
-    title: string;
-    command: string | undefined;
-    brief: string | undefined;
-    repoSelector: string | undefined;
-    pin: boolean;
-  },
-): Promise<LaunchOutcome> {
-  if (!request.repoSelector) throw new Error(`Template "${template.id}" runs in the repo folder but names no repo`);
-  if (!request.command) throw new Error(`Template "${template.id}" runs in the repo folder but names no agent`);
-
-  const main = await findMainWorkspace(request.repoSelector);
-  if (!main) throw new Error(`Orca knows no main checkout for ${request.repoSelector}`);
-
-  const selector = workspaceSelector(main.id);
-  const warnings: string[] = [];
-  const { handle, warning } = await startAgent(selector, request.command, request.title, request.brief);
-  if (warning) warnings.push(warning);
-
-  if (request.pin) {
-    try {
-      await pinWorkspace(selector);
-    } catch (error) {
-      warnings.push(`Not pinned: ${(error as Error).message}`);
-    }
-  }
-
-  return {
-    result: {
-      worktree: { id: main.id, path: main.path, displayName: main.displayName || undefined },
-      agentTerminalHandle: handle,
-    },
-    handle,
-    warnings,
-  };
 }
 
 /**

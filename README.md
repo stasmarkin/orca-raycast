@@ -79,7 +79,7 @@ Templates are presets for a workspace launch, stored in `~/.config/orca-raycast/
 | --- | --- |
 | `id` | What you type on the **Run Task** screen. Must be unique. |
 | `namePattern` | Workspace name; supports placeholders. |
-| `worktree` | Who makes the checkout: `orca` (default), `arc` (see below), or `main` — no checkout at all, the agent starts in the folder the repo itself lives in. |
+| `worktree` | Who makes the checkout: `orca` (default) or `arc`, see below. |
 | `repo` | Repo selector for `--repo`, e.g. `name:orca`, `id:<uuid>`, `path:/abs/path`. Omit it to use the dropdown. |
 | `project` | Project for `wt new --project`, e.g. `pp`. Required when `worktree` is `arc`, ignored otherwise. |
 | `agent`, `prompt` | Agent to launch and the brief sent to it. |
@@ -87,11 +87,9 @@ Templates are presets for a workspace launch, stored in `~/.config/orca-raycast/
 | `requiresInput` | Refuse to run without an input. |
 | `defaultModifiers` | Modifiers pre-selected for this template (`pin`, `huge`). |
 
-### Templates that run in the repo folder
+### Folder projects
 
-`"worktree": "main"` starts the agent in the checkout the repository itself lives in — Orca's main workspace for that repo, which both git repos and folder projects have. Nothing is created: no branch, no worktree, no workspace. It suits a template that only asks a question, where a branch of its own is a cost with nothing to show for it, and the answer benefits from the tree as it actually is.
-
-`namePattern` becomes the terminal's title, `baseBranch`, `setup` and `noParent` are ignored (there is no checkout to apply them to), and `pin` pins the repo's main workspace. The working tree is shared with everything else using that folder, so two agents editing at once would collide — keep these templates read-only, and say so in the prompt.
+A repo Orca registered as a folder project — an Arcadia mount, anything that is not git — gets a workspace that points straight at that folder instead of a checkout of its own. Nothing is copied and no branch is made, so several workspaces share one working tree: keep such templates read-only and say so in the prompt. This is the repo's own kind, not a template setting; a git repo always gets a real worktree.
 
 ### Arcadia templates
 

@@ -151,10 +151,7 @@ export function TaskForm({ template, orchestrator, onLaunched }: TaskFormProps) 
 
       <Form.Separator />
 
-      <Form.Description
-        title={template.worktree === "main" ? "Terminal title" : "Workspace name"}
-        text={preview.worktreeName}
-      />
+      <Form.Description title="Workspace name" text={preview.worktreeName} />
       <Form.Description title="Prompt" text={preview.prompt ?? "This workflow starts its agent with no brief."} />
     </Form>
   );

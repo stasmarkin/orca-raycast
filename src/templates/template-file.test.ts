@@ -21,7 +21,7 @@ describe("readTemplates", () => {
   });
 
   it("accepts every worktree mode a launch knows how to make, and no others", async () => {
-    for (const mode of ["orca", "arc", "main"]) {
+    for (const mode of ["orca", "arc"]) {
       writeFileSync(
         TEMPLATE_FILE,
         JSON.stringify({ templates: [{ id: "a", title: "A", namePattern: "x", worktree: mode, project: "pp" }] }),

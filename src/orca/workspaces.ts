@@ -4,7 +4,6 @@ import {
   CreateWorkspaceSchema,
   RepoListSchema,
   WorkspaceListSchema,
-  WorktreeListSchema,
   type CreateWorkspaceResult,
   type Repo,
   type Workspace,
@@ -69,17 +68,6 @@ export async function pinWorkspace(selector: string): Promise<void> {
 /** `id:` is the only form scoped to one repo, so it can never resolve ambiguously. */
 export function workspaceSelector(worktreeId: string): string {
   return `id:${worktreeId}`;
-}
-
-export type MainWorkspace = { id: string; path: string; displayName: string };
-
-/**
- * The checkout the repo itself lives in — the one a template runs in when it wants the repository
- * as it is, without a branch of its own. Both git repos and folder projects report one.
- */
-export async function findMainWorkspace(repoSelector: string): Promise<MainWorkspace | undefined> {
-  const result = await invokeOrca(["worktree", "list", `--repo=${repoSelector}`], WorktreeListSchema);
-  return result.worktrees.find((worktree) => worktree.isMainWorktree);
 }
 
 /** `worktree show/set/rm` only ever look at git worktrees; folder workspaces are not in their candidate set. */
