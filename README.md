@@ -16,6 +16,7 @@ The extension talks to Orca exclusively through the public `orca` CLI (`orca <co
 | **Peek Agent Output** | Read the tail of an agent terminal as a detail view. |
 | **Run Automation** / **Run Automation Now** | Browse Orca automations and run one; save any of them as a hotkey. |
 | **Run Task** / **Run Workspace Template** | Type a template id and its input, toggle modifiers, launch. |
+| **New Task** | The same launch as a form, for briefs that do not fit on one line. What you type is kept as a draft until it launches. |
 
 ## Run Task
 
@@ -39,6 +40,12 @@ Modifiers toggle with `⌘1` / `⌘2` (or from `⌘K`) and show as tags in that 
 A template's `defaultModifiers` are pre-selected; toggling on this screen overrides them for that launch.
 
 Templates that do not name a `repo` use the repo picked in the search bar dropdown, which is remembered between launches (including for hotkey launches, which have no UI).
+
+## New Task
+
+Raycast refuses to paste a long text into a search bar, so a brief of more than a line belongs in a form: a workflow dropdown, a multi-line brief, a checkbox per modifier, and the resulting workspace name and prompt underneath.
+
+The brief is saved as you type and restored the next time the command opens — Raycast closes its window whenever focus moves elsewhere, and copying something from a browser mid-sentence should not cost the paragraph. The draft is dropped once the launch succeeds; a failed launch keeps it. `⌘⇧⌫` discards it by hand.
 
 ## Workspace templates
 
@@ -72,13 +79,19 @@ Templates are presets for a workspace launch, stored in `~/.config/orca-raycast/
 | --- | --- |
 | `id` | What you type on the **Run Task** screen. Must be unique. |
 | `namePattern` | Workspace name; supports placeholders. |
-| `worktree` | Who makes the checkout: `orca` (default) or `arc`, see below. |
+| `worktree` | Who makes the checkout: `orca` (default), `arc` (see below), or `main` — no checkout at all, the agent starts in the folder the repo itself lives in. |
 | `repo` | Repo selector for `--repo`, e.g. `name:orca`, `id:<uuid>`, `path:/abs/path`. Omit it to use the dropdown. |
 | `project` | Project for `wt new --project`, e.g. `pp`. Required when `worktree` is `arc`, ignored otherwise. |
 | `agent`, `prompt` | Agent to launch and the brief sent to it. |
 | `baseBranch`, `comment`, `setup`, `noParent`, `activate` | Map 1:1 onto the matching `worktree create` flags. |
 | `requiresInput` | Refuse to run without an input. |
 | `defaultModifiers` | Modifiers pre-selected for this template (`pin`, `huge`). |
+
+### Templates that run in the repo folder
+
+`"worktree": "main"` starts the agent in the checkout the repository itself lives in — Orca's main workspace for that repo, which both git repos and folder projects have. Nothing is created: no branch, no worktree, no workspace. It suits a template that only asks a question, where a branch of its own is a cost with nothing to show for it, and the answer benefits from the tree as it actually is.
+
+`namePattern` becomes the terminal's title, `baseBranch`, `setup` and `noParent` are ignored (there is no checkout to apply them to), and `pin` pins the repo's main workspace. The working tree is shared with everything else using that folder, so two agents editing at once would collide — keep these templates read-only, and say so in the prompt.
 
 ### Arcadia templates
 

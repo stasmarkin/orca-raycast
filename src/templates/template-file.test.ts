@@ -20,6 +20,22 @@ describe("readTemplates", () => {
     expect((await readTemplates())[0]?.id).toBe("mine");
   });
 
+  it("accepts every worktree mode a launch knows how to make, and no others", async () => {
+    for (const mode of ["orca", "arc", "main"]) {
+      writeFileSync(
+        TEMPLATE_FILE,
+        JSON.stringify({ templates: [{ id: "a", title: "A", namePattern: "x", worktree: mode, project: "pp" }] }),
+      );
+      expect((await readTemplates())[0]?.worktree, mode).toBe(mode);
+    }
+
+    writeFileSync(
+      TEMPLATE_FILE,
+      JSON.stringify({ templates: [{ id: "a", title: "A", namePattern: "x", worktree: "somewhere" }] }),
+    );
+    await expect(readTemplates()).rejects.toThrow(TemplateFileError);
+  });
+
   it("rejects duplicate ids", async () => {
     writeFileSync(
       TEMPLATE_FILE,

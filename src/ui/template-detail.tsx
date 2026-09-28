@@ -15,14 +15,15 @@ export type TemplateDetailProps = {
   /** Display name of the repo picked in the dropdown, for templates that name none. */
   repoName: string | undefined;
   missingInput: boolean;
+  /** First line of an unsent brief, when one is waiting for this workflow. */
+  draftLine?: string;
 };
 
 export function TemplateDetail(props: TemplateDetailProps) {
-  const { template, preview, active, orchestrator, repoName, missingInput } = props;
+  const { template, preview, active, orchestrator, repoName, missingInput, draftLine } = props;
   const isHuge = active.includes("huge");
   const agent = isHuge ? (orchestrator?.command ?? DEFAULT_ORCHESTRATOR_COMMAND) : (template.agent ?? "none");
-  const target =
-    template.worktree === "arc" ? `${template.project} (arc)` : (template.repo ?? repoName ?? "pick one in ⌘P");
+  const target = describeTarget(template, repoName);
   const settings = describeSettings(template);
 
   return (
@@ -31,15 +32,21 @@ export function TemplateDetail(props: TemplateDetailProps) {
       metadata={
         <List.Item.Detail.Metadata>
           <List.Item.Detail.Metadata.Label title="Workflow" text={template.title} />
+          {draftLine !== undefined && (
+            <List.Item.Detail.Metadata.Label title="Unsent draft" text={draftLine} icon={Icon.Pencil} />
+          )}
           <List.Item.Detail.Metadata.Label
             title={isHuge ? "Orchestrator" : "Agent"}
             text={agent}
             icon={isHuge ? Icon.Crown : Icon.Person}
           />
           <List.Item.Detail.Metadata.Label title="Target" text={target} />
-          {template.baseBranch && <List.Item.Detail.Metadata.Label title="Base branch" text={template.baseBranch} />}
+          {/* `wt` takes no base ref from here, so showing one for arc would promise a branch nobody uses. */}
+          {template.baseBranch && template.worktree !== "arc" && (
+            <List.Item.Detail.Metadata.Label title="Base branch" text={template.baseBranch} />
+          )}
           <List.Item.Detail.Metadata.Label
-            title="Workspace name"
+            title={template.worktree === "main" ? "Terminal title" : "Workspace name"}
             text={preview.worktreeName}
             icon={missingInput ? Icon.ExclamationMark : undefined}
           />
@@ -66,12 +73,21 @@ export function TemplateDetail(props: TemplateDetailProps) {
   );
 }
 
+function describeTarget(template: WorkspaceTemplate, repoName: string | undefined): string {
+  if (template.worktree === "arc") return `${template.project} (arc)`;
+  const repo = template.repo ?? repoName ?? "pick one in ⌘P";
+  return template.worktree === "main" ? `${repo} — repo folder, no checkout` : repo;
+}
+
 /** Template switches that change what the launch does, as short tags. */
 function describeSettings(template: WorkspaceTemplate): string[] {
+  // Only Orca's own `worktree create` takes these: `wt` builds an arc checkout its own way, and a
+  // `main` launch creates nothing at all, so showing them anywhere else would lie.
+  const viaOrca = template.worktree === undefined || template.worktree === "orca";
   return [
-    ...(template.noParent ? ["no parent"] : []),
+    ...(template.noParent && viaOrca ? ["no parent"] : []),
+    ...(template.setup && viaOrca ? [`setup: ${template.setup}`] : []),
     ...(template.activate ? ["switch to Orca"] : []),
-    ...(template.setup ? [`setup: ${template.setup}`] : []),
     ...(template.requiresInput ? ["input required"] : []),
   ];
 }

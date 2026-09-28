@@ -104,6 +104,13 @@
       "mode": "view"
     },
     {
+      "name": "new-task",
+      "title": "New Task",
+      "subtitle": "Orca",
+      "description": "Write a multi-line brief in a form; it is kept as a draft until you launch it",
+      "mode": "view"
+    },
+    {
       "name": "run-template",
       "title": "Run Workspace Template",
       "subtitle": "Orca",

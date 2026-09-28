@@ -22,6 +22,9 @@ const WtWorktreeSchema = z.object({
   path: z.string().catch(""),
   name: z.string().catch(""),
   agentTerminalHandle: z.string().nullable().catch(null),
+  /** `wt` reports a brief it could not deliver on stdout and exits 0; an older one omits both. */
+  promptSent: z.boolean().catch(true),
+  promptError: z.string().optional().catch(undefined),
 });
 
 export type WtWorktree = z.infer<typeof WtWorktreeSchema>;
@@ -67,7 +70,13 @@ export async function createArcWorktree(input: CreateArcWorktreeInput): Promise<
 
   let stdout: string;
   try {
-    const result = await run(resolveWtBinary(), args, { timeout: TIMEOUT_MS, encoding: "utf8", env: toolEnv() });
+    const result = await run(resolveWtBinary(), args, {
+      timeout: TIMEOUT_MS,
+      encoding: "utf8",
+      env: toolEnv(),
+      // An arc failure can print a lot; the default 1 MB would surface as an unrelated spawn error.
+      maxBuffer: 32 * 1024 * 1024,
+    });
     stdout = result.stdout;
   } catch (error) {
     if ((error as { killed?: boolean }).killed) throw new WtTimeoutError();

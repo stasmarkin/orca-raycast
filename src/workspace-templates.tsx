@@ -3,7 +3,8 @@ import { useCachedPromise, usePromise } from "@raycast/utils";
 import { useMemo, useState } from "react";
 import { MODIFIERS, resolveModifiers, type ModifierOverrides } from "./templates/modifiers";
 import { matchTemplates, parseRunQuery } from "./templates/run-query";
-import { previewTemplate } from "./templates/template-preview";
+import { previewTemplate, usesClipboard } from "./templates/template-preview";
+import { usesClipboardPlaceholder } from "./templates/placeholders";
 import { ensureTemplateFile, readTemplateFile, TEMPLATE_FILE, type WorkspaceTemplate } from "./templates/template-file";
 import { listRepos } from "./orca/workspaces";
 import { readClipboardOnce } from "./ui/clipboard-once";
@@ -17,9 +18,15 @@ export default function Command() {
     initialData: { templates: [] as WorkspaceTemplate[] },
   });
   const { data: repos } = useCachedPromise(listRepos, [], { initialData: [] });
-  const { data: clipboard = "" } = usePromise(readClipboardOnce);
   const [searchText, setSearchText] = useState("");
-  const [overrides, setOverrides] = useState<ModifierOverrides>({});
+  // `{clipboard}` typed into the search bar counts too: it is how a brief too long to paste gets in.
+  const needsClipboard = useMemo(
+    () => data.templates.some(usesClipboard) || usesClipboardPlaceholder(searchText),
+    [data.templates, searchText],
+  );
+  const { data: clipboard = "" } = usePromise(readClipboardOnce, [], { execute: needsClipboard });
+  // Keyed by template: toggling Pin off for one workflow must not silently disarm the next one.
+  const [overrides, setOverrides] = useState<Record<string, ModifierOverrides>>({});
   const [repo, setRepo] = useState("");
   const [isRunning, setIsRunning] = useState(false);
 
@@ -27,13 +34,13 @@ export default function Command() {
   const matches = useMemo(() => matchTemplates(data.templates, templateQuery), [data.templates, templateQuery]);
 
   async function run(template: WorkspaceTemplate) {
-    const modifiers = resolveModifiers(template, overrides);
+    // Enter repeats while the launch is in flight, and every repeat would create another workspace.
+    if (isRunning) return;
+    const modifiers = resolveModifiers(template, overrides[template.id]);
     if (template.requiresInput && !input) {
-      await showToast({
-        style: Toast.Style.Failure,
-        title: `${template.title} needs input`,
-        message: `Type it after the template id, e.g. "${template.id} STARTREK-789"`,
-      });
+      // Enter on a row whose id was never typed: pick it, so the input can follow. Refusing here is
+      // what made arrowing through the list look broken.
+      setSearchText(`${template.id} `);
       return;
     }
 
@@ -63,10 +70,14 @@ export default function Command() {
       isLoading={isLoading || isRunning}
       isShowingDetail={matches.length > 0}
       filtering={false}
+      searchText={searchText}
       onSearchTextChange={setSearchText}
       searchBarPlaceholder="template then input, e.g. pp STARTREK-789"
       searchBarAccessory={
         <List.Dropdown tooltip="Repo for templates that do not name one" storeValue onChange={setRepo}>
+          {/* Without it Raycast selects the first repo by itself, and a template without its own
+              repo would quietly land in whichever one `orca repo list` happened to return first. */}
+          <List.Dropdown.Item title="No repo picked" value="" />
           {repos.map((entry) => (
             <List.Dropdown.Item key={entry.id} title={entry.displayName || entry.path} value={`id:${entry.id}`} />
           ))}
@@ -100,7 +111,7 @@ export default function Command() {
       )}
 
       {matches.map((template) => {
-        const active = resolveModifiers(template, overrides);
+        const active = resolveModifiers(template, overrides[template.id]);
         return (
           <List.Item
             key={template.id}
@@ -118,7 +129,11 @@ export default function Command() {
             }
             actions={
               <ActionPanel>
-                <Action title={`Run ${template.id}`} icon={Icon.Play} onAction={() => run(template)} />
+                <Action
+                  title={template.requiresInput && !input ? `Pick ${template.id}` : `Run ${template.id}`}
+                  icon={template.requiresInput && !input ? Icon.TextInput : Icon.Play}
+                  onAction={() => run(template)}
+                />
                 <ActionPanel.Section title="Modifiers">
                   {MODIFIERS.map((modifier) => (
                     <Action
@@ -127,7 +142,10 @@ export default function Command() {
                       icon={active.includes(modifier.id) ? Icon.CheckCircle : Icon.Circle}
                       shortcut={{ modifiers: ["cmd"], key: modifier.key }}
                       onAction={() =>
-                        setOverrides((current) => ({ ...current, [modifier.id]: !active.includes(modifier.id) }))
+                        setOverrides((current) => ({
+                          ...current,
+                          [template.id]: { ...current[template.id], [modifier.id]: !active.includes(modifier.id) },
+                        }))
                       }
                     />
                   ))}
@@ -141,7 +159,9 @@ export default function Command() {
                       link: commandDeeplink("run-template", {
                         template: template.id,
                         input,
-                        modifiers: active.join(","),
+                        // Spelled out, because an empty value is dropped from the link and would
+                        // silently restore the template's defaults on every hotkey launch.
+                        modifiers: active.length > 0 ? active.join(",") : "none",
                       }),
                     }}
                     shortcut={{ modifiers: ["cmd"], key: "l" }}

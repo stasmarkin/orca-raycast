@@ -1,6 +1,11 @@
-import { expandPlaceholdersWith } from "./placeholders";
+import { expandPlaceholdersWith, usesClipboardPlaceholder } from "./placeholders";
 import type { WorkspaceTemplate } from "./template-file";
 import { toWtWorktreeName } from "../wt/worktree-name";
+
+/** Screens read the clipboard only for templates that spend it, not on every open. */
+export function usesClipboard(template: WorkspaceTemplate): boolean {
+  return usesClipboardPlaceholder(template.namePattern) || usesClipboardPlaceholder(template.prompt);
+}
 
 export type TemplatePreview = {
   /** Name the launch would give the checkout — slugified for arc, where `wt` validates it. */

@@ -15,6 +15,14 @@ describe("parseWtOutput", () => {
     expect(parsed).toMatchObject({ worktreeId: "repo-1::/Users/me/arcadia/x", agentTerminalHandle: "term_7" });
   });
 
+  it("reads an undelivered brief, and assumes delivery when wt is too old to say", () => {
+    const failed = parseWtOutput(
+      JSON.stringify({ worktreeId: "repo-1::/x", promptSent: false, promptError: "агент не вышел в idle" }),
+    );
+    expect(failed).toMatchObject({ promptSent: false, promptError: "агент не вышел в idle" });
+    expect(parseWtOutput(JSON.stringify({ worktreeId: "repo-1::/x" })).promptSent).toBe(true);
+  });
+
   it("keeps the worktree when no agent was started", () => {
     const parsed = parseWtOutput(JSON.stringify({ worktreeId: "repo-1::/x", agentTerminalHandle: null }));
     expect(parsed.agentTerminalHandle).toBeNull();

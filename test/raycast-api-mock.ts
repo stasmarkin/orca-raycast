@@ -14,8 +14,12 @@ export const Clipboard = {
 const storage = new Map<string, string>();
 
 export const LocalStorage = {
+  allItems: async (): Promise<Record<string, string>> => Object.fromEntries(storage),
   getItem: async <T>(key: string): Promise<T | undefined> => storage.get(key) as T | undefined,
   setItem: async (key: string, value: string): Promise<void> => {
     storage.set(key, value);
+  },
+  removeItem: async (key: string): Promise<void> => {
+    storage.delete(key);
   },
 };

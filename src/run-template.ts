@@ -17,9 +17,10 @@ export default async function Command(
   try {
     const file = await readTemplateFile();
     template = findTemplate(file.templates, query);
-    const modifiers = props.arguments.modifiers
-      ? parseModifiers(props.arguments.modifiers)
-      : (template.defaultModifiers ?? []);
+    // A blank argument means "whatever the template says"; `none` is how a Quicklink spells out an
+    // empty set, which an empty string cannot survive — the deeplink drops empty values.
+    const requested = props.arguments.modifiers?.trim() ?? "";
+    const modifiers = requested ? parseModifiers(requested) : (template.defaultModifiers ?? []);
 
     await showToast({ style: Toast.Style.Animated, title: `Creating ${template.title}` });
     outcome = await launchTemplate(template, input, {

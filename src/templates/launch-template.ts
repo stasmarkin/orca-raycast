@@ -1,5 +1,5 @@
-import { createWorkspace, pinWorkspace, workspaceSelector } from "../orca/workspaces";
-import { createTerminal, sendToTerminal, waitForTuiIdle } from "../orca/terminals";
+import { createWorkspace, findMainWorkspace, pinWorkspace, workspaceSelector } from "../orca/workspaces";
+import { createTerminal, sendToTerminal, terminalAcceptsInput, waitForTuiIdle } from "../orca/terminals";
 import type { CreateWorkspaceResult } from "../orca/types";
 import { OrcaTimeoutError } from "../orca/invoke";
 import { createArcWorktree, WtTimeoutError } from "../wt/worktrees";
@@ -57,21 +57,35 @@ export async function launchTemplate(
   const agent = isHuge ? undefined : template.agent;
   const brief = isHuge ? undefined : prompt;
 
-  const result =
+  if (template.worktree === "main") {
+    return runInMainCheckout(template, {
+      title: name,
+      command: isHuge ? (options.orchestrator?.command ?? DEFAULT_ORCHESTRATOR_COMMAND) : template.agent,
+      brief: isHuge ? briefWithOrchestratorPrefix(prompt ?? trimmed, options.orchestrator) : prompt,
+      repoSelector: resolveRepoSelector(template.repo, options.repoSelector),
+      pin: modifiers.includes("pin"),
+    });
+  }
+
+  const created =
     template.worktree === "arc"
       ? await createArcWorkspace(template, { name, agent, prompt: brief })
-      : await createWorkspace({
-          name,
-          repoSelector: resolveRepoSelector(template.repo, options.repoSelector),
-          agent,
-          prompt: brief,
-          baseBranch: template.baseBranch,
-          comment: template.comment ? await expandPlaceholders(template.comment, context) : undefined,
-          setup: template.setup,
-          noParent: template.noParent,
-          activate: template.activate,
-        });
-  const warnings: string[] = [];
+      : {
+          result: await createWorkspace({
+            name,
+            repoSelector: resolveRepoSelector(template.repo, options.repoSelector),
+            agent,
+            prompt: brief,
+            baseBranch: template.baseBranch,
+            comment: template.comment ? await expandPlaceholders(template.comment, context) : undefined,
+            setup: template.setup,
+            noParent: template.noParent,
+            activate: template.activate,
+          }),
+          warning: undefined,
+        };
+  const result = created.result;
+  const warnings: string[] = created.warning === undefined ? [] : [created.warning];
   const selector = createdWorkspaceSelector(result);
   let handle = result.agentTerminalHandle ?? result.startupTerminal?.handle;
 
@@ -79,7 +93,9 @@ export async function launchTemplate(
     if (!selector) warnings.push("Orca returned no workspace id, so the orchestrator was not started");
     else {
       try {
-        handle = await startOrchestrator(selector, prompt ?? trimmed, options.orchestrator);
+        const started = await startOrchestrator(selector, prompt ?? trimmed, options.orchestrator);
+        handle = started.handle;
+        if (started.warning) warnings.push(started.warning);
       } catch (error) {
         warnings.push(`Orchestrator not started: ${(error as Error).message}`);
       }
@@ -101,13 +117,57 @@ export async function launchTemplate(
 }
 
 /**
+ * No checkout: the agent starts in the folder the repository itself lives in. For a question that
+ * only reads the code, a branch of its own is a cost with nothing to show for it — but every launch
+ * here shares one working tree, so two agents editing at once would collide.
+ */
+async function runInMainCheckout(
+  template: WorkspaceTemplate,
+  request: {
+    title: string;
+    command: string | undefined;
+    brief: string | undefined;
+    repoSelector: string | undefined;
+    pin: boolean;
+  },
+): Promise<LaunchOutcome> {
+  if (!request.repoSelector) throw new Error(`Template "${template.id}" runs in the repo folder but names no repo`);
+  if (!request.command) throw new Error(`Template "${template.id}" runs in the repo folder but names no agent`);
+
+  const main = await findMainWorkspace(request.repoSelector);
+  if (!main) throw new Error(`Orca knows no main checkout for ${request.repoSelector}`);
+
+  const selector = workspaceSelector(main.id);
+  const warnings: string[] = [];
+  const { handle, warning } = await startAgent(selector, request.command, request.title, request.brief);
+  if (warning) warnings.push(warning);
+
+  if (request.pin) {
+    try {
+      await pinWorkspace(selector);
+    } catch (error) {
+      warnings.push(`Not pinned: ${(error as Error).message}`);
+    }
+  }
+
+  return {
+    result: {
+      worktree: { id: main.id, path: main.path, displayName: main.displayName || undefined },
+      agentTerminalHandle: handle,
+    },
+    handle,
+    warnings,
+  };
+}
+
+/**
  * Arcadia is not git, so the checkout, its Orca folder project and the agent are all made by `wt`.
  * Its answer is reshaped into Orca's so that pinning, the orchestrator and activation stay one code path.
  */
 async function createArcWorkspace(
   template: WorkspaceTemplate,
   request: { name: string; agent?: string; prompt?: string },
-): Promise<CreateWorkspaceResult> {
+): Promise<{ result: CreateWorkspaceResult; warning: string | undefined }> {
   // The template schema already requires it; this keeps a hand-edited file from calling `wt` half-configured.
   if (!template.project) throw new Error(`Template "${template.id}" uses arc but names no project`);
 
@@ -116,25 +176,74 @@ async function createArcWorkspace(
     name: toWtWorktreeName(request.name),
     project: template.project,
   });
+  // `wt` exits 0 with the checkout built even when the agent never took the brief; silence here
+  // would show "Workspace created" over an agent sitting with an empty prompt.
+  const warning =
+    request.agent !== undefined && request.prompt !== undefined && !worktree.promptSent
+      ? `Brief not delivered: ${worktree.promptError ?? "reason unknown"} — send it by hand`
+      : undefined;
+
   return {
-    worktree: { id: worktree.worktreeId, path: worktree.path, displayName: worktree.name || undefined },
-    agentTerminalHandle: worktree.agentTerminalHandle ?? undefined,
+    warning,
+    result: {
+      worktree: { id: worktree.worktreeId, path: worktree.path, displayName: worktree.name || undefined },
+      agentTerminalHandle: worktree.agentTerminalHandle ?? undefined,
+    },
   };
+}
+
+/**
+ * Starts an agent in a workspace that already exists and types the brief once its TUI is up. The
+ * terminal is reported even when the brief never lands: it exists, and saying otherwise would send
+ * the caller looking for a pane that is sitting right there.
+ */
+async function startAgent(
+  selector: string,
+  command: string,
+  title: string,
+  brief: string | undefined,
+): Promise<{ handle: string; warning?: string }> {
+  const handle = await createTerminal(selector, command, title);
+  if (brief === undefined || brief.length === 0) return { handle };
+
+  try {
+    // Both gates guard the same accident: a command that never became an agent leaves a plain shell,
+    // and typing the brief with Enter into it would run the task description as shell commands.
+    if (!(await waitForTuiIdle(handle, TUI_READY_TIMEOUT_MS))) {
+      throw new Error("it never reached idle");
+    }
+    if (!(await terminalAcceptsInput(handle))) {
+      throw new Error("the pane is not an agent");
+    }
+    // A newline inside the TUI submits, so the whole brief has to arrive as one line.
+    await sendToTerminal(handle, brief.replace(/\s*\n\s*/g, " "), true);
+    return { handle };
+  } catch (error) {
+    return { handle, warning: `Brief not typed: ${(error as Error).message} — send it by hand` };
+  }
+}
+
+function briefWithOrchestratorPrefix(brief: string, config: OrchestratorConfig | undefined): string {
+  return composeBrief(config?.promptPrefix ?? DEFAULT_ORCHESTRATOR_PROMPT_PREFIX, brief);
 }
 
 async function startOrchestrator(
   selector: string,
   brief: string,
   config: OrchestratorConfig | undefined,
-): Promise<string> {
+): Promise<{ handle: string; warning?: string }> {
   const command = config?.command ?? DEFAULT_ORCHESTRATOR_COMMAND;
-  const prefix = config?.promptPrefix ?? DEFAULT_ORCHESTRATOR_PROMPT_PREFIX;
+  return startAgent(selector, command, "orchestrator", briefWithOrchestratorPrefix(brief, config));
+}
 
-  const handle = await createTerminal(selector, command, "orchestrator");
-  await waitForTuiIdle(handle, TUI_READY_TIMEOUT_MS);
+/**
+ * `{brief}` is substituted with a function so `$&` and friends inside the task survive, and a prefix
+ * that forgot the placeholder gets the brief appended rather than dropping it.
+ */
+export function composeBrief(prefix: string, brief: string): string {
+  const composed = prefix.includes("{brief}") ? prefix.replace("{brief}", () => brief) : `${prefix} ${brief}`;
   // A newline inside the TUI submits, so the whole brief has to arrive as one line.
-  await sendToTerminal(handle, prefix.replace("{brief}", brief).replace(/\s*\n\s*/g, " "), true);
-  return handle;
+  return composed.replace(/\s*\n\s*/g, " ");
 }
 
 function createdWorkspaceSelector(result: CreateWorkspaceResult): string | undefined {

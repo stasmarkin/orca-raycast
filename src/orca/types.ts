@@ -107,8 +107,27 @@ export const TerminalTailSchema = z.object({
   }),
 });
 
+/** Orca has shipped both shapes; `wt` reads them the same way, so a version skew is not an error. */
 export const CreateTerminalSchema = z.object({
-  terminal: z.object({ handle: z.string(), worktreeId: z.string().catch("") }),
+  terminal: z.object({ handle: z.string(), worktreeId: z.string().catch("") }).optional(),
+  handle: z.string().optional(),
+});
+
+export const TerminalWaitSchema = z.object({
+  satisfied: z.boolean().optional(),
+  wait: z.object({ satisfied: z.boolean().optional() }).optional(),
+});
+
+/** `worktree list` for one repo: enough to find the checkout the repo itself lives in. */
+export const WorktreeListSchema = z.object({
+  worktrees: arrayOfValid(
+    z.object({
+      id: z.string(),
+      path: z.string().catch(""),
+      displayName: z.string().catch(""),
+      isMainWorktree: z.boolean().catch(false),
+    }),
+  ),
 });
 
 export const RepoListSchema = z.object({

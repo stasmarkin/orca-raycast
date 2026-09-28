@@ -37,11 +37,11 @@ describe("matchTemplates", () => {
     expect(matchTemplates(templates, "")).toHaveLength(3);
   });
 
-  it("prefers an exact id over a longer one that merely starts with it", () => {
-    expect(matchTemplates(templates, "pp").map((t) => t.id)).toEqual(["pp"]);
+  it("puts an exact id first but keeps the longer one reachable", () => {
+    expect(matchTemplates(templates, "pp").map((t) => t.id)).toEqual(["pp", "ppx"]);
   });
 
-  it("falls back to substring matching on id and title", () => {
+  it("matches on id and title", () => {
     expect(matchTemplates(templates, "ppx").map((t) => t.id)).toEqual(["ppx"]);
     expect(matchTemplates(templates, "review").map((t) => t.id)).toEqual(["review"]);
   });

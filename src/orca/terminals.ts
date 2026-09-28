@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { invokeOrca } from "./invoke";
+import { invokeOrca, OrcaContractError } from "./invoke";
 import {
   CreateTerminalSchema,
   TerminalListSchema,
   TerminalTailSchema,
+  TerminalWaitSchema,
   type Terminal,
   type TerminalList,
   type TerminalTail,
@@ -56,16 +57,29 @@ export async function createTerminal(workspaceSelector: string, command: string,
   const args = ["terminal", "create", `--worktree=${workspaceSelector}`, `--command=${command}`];
   if (title) args.push(`--title=${title}`);
   const result = await invokeOrca(args, CreateTerminalSchema, { timeoutMs: 60_000 });
-  return result.terminal.handle;
+  const handle = result.terminal?.handle ?? result.handle;
+  if (handle === undefined) throw new OrcaContractError("terminal create", "no handle in the response");
+  return handle;
 }
 
-/** Waits for the agent TUI to finish booting, so the brief is not typed into a prompt that is not ready. */
-export async function waitForTuiIdle(handle: string, timeoutMs: number): Promise<void> {
-  await invokeOrca(
+/**
+ * Waits for the agent TUI to finish booting. False means it never got there: Orca answers a timeout
+ * with `ok:true` and `satisfied:false`, so the caller must not type into that pane.
+ */
+export async function waitForTuiIdle(handle: string, timeoutMs: number): Promise<boolean> {
+  const result = await invokeOrca(
     ["terminal", "wait", `--terminal=${handle}`, "--for=tui-idle", `--timeout-ms=${timeoutMs}`],
-    z.unknown(),
+    TerminalWaitSchema,
     { timeoutMs: timeoutMs + 15_000 },
   );
+  return result.satisfied ?? result.wait?.satisfied ?? false;
+}
+
+/** The send-path guard for a caller that only has a handle: the pane may still be a plain shell. */
+export async function terminalAcceptsInput(handle: string): Promise<boolean> {
+  const { terminals } = await listTerminals();
+  const terminal = terminals.find((entry) => entry.handle === handle);
+  return terminal !== undefined && canReceiveInput(terminal);
 }
 
 export async function switchToTerminal(handle: string): Promise<void> {

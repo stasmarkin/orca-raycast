@@ -10,8 +10,11 @@ const TemplateSchema = z
   .object({
     id: z.string().min(1),
     title: z.string().min(1),
-    /** Who makes the checkout: Orca itself, or `wt` for an arc worktree of Arcadia. */
-    worktree: z.enum(["orca", "arc"]).optional(),
+    /**
+     * Who makes the checkout: Orca itself, `wt` for an arc worktree of Arcadia, or `main` — no
+     * checkout at all, the agent starts in the repo's own folder.
+     */
+    worktree: z.enum(["orca", "arc", "main"]).optional(),
     /** Repo selector as understood by `orca worktree create --repo`, e.g. `name:orca`. */
     repo: z.string().min(1).optional(),
     /** Project as understood by `wt new --project`, e.g. `pp`. Arc templates only. */
