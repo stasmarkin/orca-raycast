@@ -5,6 +5,7 @@ import { OrcaTimeoutError } from "../orca/invoke";
 import { createArcWorktree, WtTimeoutError } from "../wt/worktrees";
 import { toWtWorktreeName } from "../wt/worktree-name";
 import { expandPlaceholders } from "./placeholders";
+import { startWorkspaceNamer } from "./workspace-namer";
 import type { ModifierId } from "./modifiers";
 import { resolveRepoSelector } from "./repo-selection";
 import {
@@ -88,6 +89,17 @@ export async function launchTemplate(
         if (started.warning) warnings.push(started.warning);
       } catch (error) {
         warnings.push(`Orchestrator not started: ${(error as Error).message}`);
+      }
+    }
+  }
+
+  if (template.autoName && trimmed) {
+    if (!selector) warnings.push("Orca returned no workspace id, so it was not renamed");
+    else {
+      try {
+        await startWorkspaceNamer(selector, template.id, trimmed);
+      } catch (error) {
+        warnings.push(`Not renamed: ${(error as Error).message}`);
       }
     }
   }

@@ -26,6 +26,8 @@ const TemplateSchema = z
     activate: z.boolean().optional(),
     /** Prompt the user for the `{input}` value when the template is launched without one. */
     requiresInput: z.boolean().optional(),
+    /** Start a throwaway pane that reads the task, renames the workspace after it, and closes. */
+    autoName: z.boolean().optional(),
     /** Modifiers pre-selected when this template is picked; still togglable before launch. */
     defaultModifiers: z.array(z.enum(MODIFIER_IDS)).optional(),
   })

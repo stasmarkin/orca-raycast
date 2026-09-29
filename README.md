@@ -85,6 +85,7 @@ Templates are presets for a workspace launch, stored in `~/.config/orca-raycast/
 | `agent`, `prompt` | Agent to launch and the brief sent to it. |
 | `baseBranch`, `comment`, `setup`, `noParent`, `activate` | Map 1:1 onto the matching `worktree create` flags. |
 | `requiresInput` | Refuse to run without an input. |
+| `autoName` | Start a second pane on Haiku that reads the task, renames the workspace after it, and closes itself. For templates whose `namePattern` is a slug of free text, where the name Orca starts with says nothing. |
 | `defaultModifiers` | Modifiers pre-selected for this template (`pin`, `huge`). |
 
 ### Folder projects
