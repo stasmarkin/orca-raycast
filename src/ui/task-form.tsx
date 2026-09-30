@@ -3,7 +3,13 @@ import { useCachedPromise, usePromise } from "@raycast/utils";
 import { useEffect, useRef, useState } from "react";
 import { MODIFIERS, resolveModifiers, type ModifierId, type ModifierOverrides } from "../templates/modifiers";
 import { usesClipboardPlaceholder } from "../templates/placeholders";
-import { clearTaskDraft, overridesFromDraft, readTaskDraft, writeTaskDraft } from "../templates/task-draft";
+import {
+  clearTaskDraft,
+  overridesFromDraft,
+  readTaskDraft,
+  writeTaskDraft,
+  type TaskDraft,
+} from "../templates/task-draft";
 import { previewTemplate, usesClipboard } from "../templates/template-preview";
 import type { OrchestratorConfig, WorkspaceTemplate } from "../templates/template-file";
 import { listRepos } from "../orca/workspaces";
@@ -21,32 +27,34 @@ export type TaskFormProps = {
 };
 
 export function TaskForm({ template, orchestrator, onLaunched }: TaskFormProps) {
+  const { data: draft, isLoading } = usePromise(readTaskDraft, [template.id]);
+
+  // The fields are mounted only once the stored draft is in hand. Filling them in afterwards is
+  // what made the brief blink between empty and restored, and settle on either.
+  if (isLoading) return <Form isLoading />;
+  return (
+    <TaskFields
+      key={template.id}
+      template={template}
+      draft={draft}
+      orchestrator={orchestrator}
+      onLaunched={onLaunched}
+    />
+  );
+}
+
+function TaskFields({ template, draft, orchestrator, onLaunched }: TaskFormProps & { draft: TaskDraft | undefined }) {
   const { pop } = useNavigation();
   const { data: repos } = useCachedPromise(listRepos, [], { initialData: [] });
 
-  const [input, setInput] = useState("");
-  const [overrides, setOverrides] = useState<ModifierOverrides>({});
-  const [repo, setRepo] = useState("");
+  const [input, setInput] = useState(draft?.input ?? "");
+  const [overrides, setOverrides] = useState<ModifierOverrides>(draft ? overridesFromDraft(draft.modifiers) : {});
+  const [repo, setRepo] = useState(draft?.repo ?? "");
   const [inputError, setInputError] = useState<string | undefined>(undefined);
   const [isRunning, setIsRunning] = useState(false);
-  // Until the stored draft has been applied, saving would overwrite it with the empty initial state.
-  const [isRestored, setIsRestored] = useState(false);
-
-  usePromise(
-    async (id: string) => {
-      const draft = await readTaskDraft(id);
-      if (draft) {
-        setInput(draft.input);
-        setOverrides(overridesFromDraft(draft.modifiers));
-        setRepo(draft.repo);
-      }
-      setIsRestored(true);
-    },
-    [template.id],
-  );
 
   const active = resolveModifiers(template, overrides);
-  useDraftAutosave(template.id, { isRestored, input, modifiers: active, repo });
+  useDraftAutosave(template.id, { input, modifiers: active, repo });
 
   const needsClipboard = usesClipboard(template) || usesClipboardPlaceholder(input);
   const { data: clipboard = "" } = usePromise(readClipboardOnce, [], { execute: needsClipboard });
@@ -157,17 +165,12 @@ export function TaskForm({ template, orchestrator, onLaunched }: TaskFormProps) 
   );
 }
 
-function useDraftAutosave(
-  templateId: string,
-  state: { isRestored: boolean; input: string; modifiers: ModifierId[]; repo: string },
-): void {
-  const { isRestored, input, repo } = state;
+function useDraftAutosave(templateId: string, state: { input: string; modifiers: ModifierId[]; repo: string }): void {
+  const { input, repo } = state;
   const modifiers = state.modifiers.join(",");
   const saved = useRef("");
 
   useEffect(() => {
-    if (!isRestored) return;
-
     const snapshot = JSON.stringify({ templateId, input, modifiers, repo });
     if (snapshot === saved.current) return;
 
@@ -179,5 +182,5 @@ function useDraftAutosave(
 
     return () => clearTimeout(timer);
     // `state.modifiers` is a fresh array each render; the joined string is what actually changes.
-  }, [templateId, isRestored, input, modifiers, repo]);
+  }, [templateId, input, modifiers, repo]);
 }
