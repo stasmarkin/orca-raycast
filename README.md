@@ -30,12 +30,13 @@ pp STARTREK-789
 
 The pane on the right shows what the launch would do before it happens: agent, target checkout, the workspace name it would create, which modifiers are on, and the prompt with `{input}` already expanded.
 
-Modifiers toggle with `⌘1` / `⌘2` (or from `⌘K`) and show as tags in that pane:
+Modifiers toggle with `⌘1` / `⌘2` / `⌘3` (or from `⌘K`) and show as tags in that pane:
 
 | Modifier | Effect |
 | --- | --- |
 | **Pin** | Pins the new workspace via `orca worktree set --pin`. |
 | **Huge Task** | Creates the workspace without an agent, then starts an orchestrator terminal (`claude --model fable` by default), waits for its TUI, and sends the brief. Use it when the job should be split across subagents rather than done by one agent. |
+| **Focus** | Creates the workspace with `--activate` (arc templates: `wt` takes no such flag) and switches Orca to the agent's terminal. Off, the workspace is created in the background and whatever you are looking at in Orca keeps focus. |
 
 A template's `defaultModifiers` are pre-selected; toggling on this screen overrides them for that launch.
 
@@ -83,10 +84,11 @@ Templates are presets for a workspace launch, stored in `~/.config/orca-raycast/
 | `repo` | Repo selector for `--repo`, e.g. `name:orca`, `id:<uuid>`, `path:/abs/path`. Omit it to use the dropdown. |
 | `project` | Project for `wt new --project`, e.g. `pp`. Required when `worktree` is `arc`, ignored otherwise. |
 | `agent`, `prompt` | Agent to launch and the brief sent to it. |
-| `baseBranch`, `comment`, `setup`, `noParent`, `activate` | Map 1:1 onto the matching `worktree create` flags. |
+| `baseBranch`, `comment`, `setup`, `noParent` | Map 1:1 onto the matching `worktree create` flags. |
+| `activate` | Starts the **Focus** modifier switched on; same as listing `focus` in `defaultModifiers`. |
 | `requiresInput` | Refuse to run without an input. |
 | `autoName` | Start a second pane on Haiku that reads the task, renames the workspace after it, and closes itself. For templates whose `namePattern` is a slug of free text, where the name Orca starts with says nothing. |
-| `defaultModifiers` | Modifiers pre-selected for this template (`pin`, `huge`). |
+| `defaultModifiers` | Modifiers pre-selected for this template (`pin`, `huge`, `focus`). |
 
 ### Folder projects
 
@@ -110,7 +112,7 @@ Arcadia is a monorepo on `arc`, not git, so Orca cannot cut a worktree in it. A 
 }
 ```
 
-`wt new` cuts the arc worktree, registers it in Orca as its own project, creates the workspace and starts the agent with the brief. Everything after that — `pin`, **Huge Task**, `activate` — works exactly as for an Orca worktree, because `wt` answers with an Orca worktree id.
+`wt new` cuts the arc worktree, registers it in Orca as its own project, creates the workspace and starts the agent with the brief. Everything after that — `pin`, **Huge Task**, **Focus** — works exactly as for an Orca worktree, because `wt` answers with an Orca worktree id.
 
 Only `namePattern`, `agent`, `prompt`, `requiresInput`, `defaultModifiers` and `activate` apply to an arc template; the flags of `orca worktree create` (`repo`, `baseBranch`, `comment`, `setup`, `noParent`) do not reach `wt`.
 

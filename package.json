@@ -131,7 +131,7 @@
         },
         {
           "name": "modifiers",
-          "placeholder": "pin,huge",
+          "placeholder": "pin,huge,focus",
           "type": "text",
           "required": false
         }

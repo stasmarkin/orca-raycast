@@ -12,6 +12,12 @@ describe("resolveModifiers", () => {
     expect(resolveModifiers({ defaultModifiers: ["pin"] }, { huge: true })).toEqual(["pin", "huge"]);
   });
 
+  it("starts Focus on for a template that sets activate, and lets a toggle switch it off", () => {
+    expect(resolveModifiers({ activate: true })).toEqual(["focus"]);
+    expect(resolveModifiers({ activate: true }, { focus: false })).toEqual([]);
+    expect(resolveModifiers({ activate: false }, { focus: true })).toEqual(["focus"]);
+  });
+
   it("keeps the declared modifier order, not the order they were toggled in", () => {
     expect(resolveModifiers({}, { huge: true, pin: true })).toEqual(["pin", "huge"]);
   });

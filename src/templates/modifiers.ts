@@ -1,6 +1,6 @@
 /** Launch modifiers toggled on the run screen before a template is fired. */
 
-export const MODIFIER_IDS = ["pin", "huge"] as const;
+export const MODIFIER_IDS = ["pin", "huge", "focus"] as const;
 
 export type ModifierId = (typeof MODIFIER_IDS)[number];
 
@@ -25,16 +25,28 @@ export const MODIFIERS: ModifierSpec[] = [
     description: "Run an orchestrator that delegates to subagents instead of a single agent",
     key: "2",
   },
+  {
+    id: "focus",
+    title: "Focus",
+    description: "Switch Orca to the new workspace; otherwise it is created in the background",
+    key: "3",
+  },
 ];
 
 export type ModifierOverrides = Partial<Record<ModifierId, boolean>>;
 
-/** A template's defaults apply until the user overrides that modifier on the launch screen. */
-export function resolveModifiers(
-  template: { defaultModifiers?: ModifierId[] },
-  overrides: ModifierOverrides = {},
-): ModifierId[] {
+type ModifierDefaults = { defaultModifiers?: ModifierId[]; activate?: boolean };
+
+/** `activate` predates the Focus toggle, so a template that sets it still starts with Focus on. */
+export function templateDefaultModifiers(template: ModifierDefaults): ModifierId[] {
   const defaults = new Set(template.defaultModifiers ?? []);
+  if (template.activate) defaults.add("focus");
+  return MODIFIER_IDS.filter((id) => defaults.has(id));
+}
+
+/** A template's defaults apply until the user overrides that modifier on the launch screen. */
+export function resolveModifiers(template: ModifierDefaults, overrides: ModifierOverrides = {}): ModifierId[] {
+  const defaults = new Set(templateDefaultModifiers(template));
   return MODIFIER_IDS.filter((id) => overrides[id] ?? defaults.has(id));
 }
 

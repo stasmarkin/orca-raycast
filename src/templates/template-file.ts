@@ -23,6 +23,7 @@ const TemplateSchema = z
     comment: z.string().optional(),
     setup: z.enum(["run", "skip", "inherit"]).optional(),
     noParent: z.boolean().optional(),
+    /** Starts the Focus modifier switched on. */
     activate: z.boolean().optional(),
     /** Prompt the user for the `{input}` value when the template is launched without one. */
     requiresInput: z.boolean().optional(),

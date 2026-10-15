@@ -71,7 +71,7 @@ export async function launchTemplate(
             comment: template.comment ? await expandPlaceholders(template.comment, context) : undefined,
             setup: template.setup,
             noParent: template.noParent,
-            activate: template.activate,
+            activate: modifiers.includes("focus"),
           }),
           warning: undefined,
         };

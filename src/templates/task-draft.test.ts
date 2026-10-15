@@ -44,7 +44,7 @@ describe("task draft", () => {
   });
 
   it("turns the stored set back into explicit checkbox state", () => {
-    expect(overridesFromDraft(["pin"])).toEqual({ pin: true, huge: false });
-    expect(overridesFromDraft([])).toEqual({ pin: false, huge: false });
+    expect(overridesFromDraft(["pin"])).toEqual({ pin: true, huge: false, focus: false });
+    expect(overridesFromDraft([])).toEqual({ pin: false, huge: false, focus: false });
   });
 });

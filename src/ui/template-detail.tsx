@@ -85,7 +85,6 @@ function describeSettings(template: WorkspaceTemplate): string[] {
   return [
     ...(template.noParent && viaOrca ? ["no parent"] : []),
     ...(template.setup && viaOrca ? [`setup: ${template.setup}`] : []),
-    ...(template.activate ? ["switch to Orca"] : []),
     ...(template.requiresInput ? ["input required"] : []),
   ];
 }

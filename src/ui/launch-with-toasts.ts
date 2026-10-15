@@ -33,7 +33,7 @@ export async function launchWithToasts(
   toast.title = outcome.warnings.length > 0 ? "Created with problems" : "Workspace created";
   toast.message = outcome.warnings.join("; ") || outcome.result.worktree?.path;
 
-  if (!template.activate || !outcome.handle) return true;
+  if (!options.modifiers?.includes("focus") || !outcome.handle) return true;
   try {
     await revealTerminalInOrca(outcome.handle);
   } catch (error) {

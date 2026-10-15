@@ -1,6 +1,6 @@
 import { LaunchProps, showHUD, showToast, Toast } from "@raycast/api";
 import { findTemplate, launchTemplate, stillRunning } from "./templates/launch-template";
-import { parseModifiers } from "./templates/modifiers";
+import { parseModifiers, templateDefaultModifiers, type ModifierId } from "./templates/modifiers";
 import { readTemplateFile } from "./templates/template-file";
 import { readDefaultRepo } from "./templates/repo-selection";
 import { describeError } from "./orca/invoke";
@@ -14,13 +14,14 @@ export default async function Command(
 
   let outcome;
   let template;
+  let modifiers: ModifierId[];
   try {
     const file = await readTemplateFile();
     template = findTemplate(file.templates, query);
     // A blank argument means "whatever the template says"; `none` is how a Quicklink spells out an
     // empty set, which an empty string cannot survive — the deeplink drops empty values.
     const requested = props.arguments.modifiers?.trim() ?? "";
-    const modifiers = requested ? parseModifiers(requested) : (template.defaultModifiers ?? []);
+    modifiers = requested ? parseModifiers(requested) : templateDefaultModifiers(template);
 
     await showToast({ style: Toast.Style.Animated, title: `Creating ${template.title}` });
     outcome = await launchTemplate(template, input, {
@@ -48,7 +49,7 @@ export default async function Command(
     await showHUD(`🚀 ${outcome.result.worktree?.displayName ?? template.title}`);
   }
 
-  if (!template.activate || !outcome.handle) return;
+  if (!modifiers.includes("focus") || !outcome.handle) return;
   try {
     await revealTerminalInOrca(outcome.handle);
   } catch (error) {
