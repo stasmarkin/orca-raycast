@@ -6,17 +6,17 @@ The extension talks to Orca exclusively through the public `orca` CLI (`orca <co
 
 ## Commands
 
-| Command | What it does |
-| --- | --- |
-| **Search Workspaces** | Every workspace with live agent status, grouped by repo. Workspaces blocked on you float to the top. |
-| **Agents Needing You** | Only the workspaces where an agent is waiting — answer it straight from Raycast. |
-| **Orca Agents** (menu bar) | Count of agents waiting on you; click one to jump to its terminal in Orca. |
-| **Create Workspace** | Repo, name, base branch, agent and brief — the form equivalent of `orca worktree create`. |
-| **Send to Agent** | Send a message to any live agent terminal. |
-| **Peek Agent Output** | Read the tail of an agent terminal as a detail view. |
-| **Run Automation** / **Run Automation Now** | Browse Orca automations and run one; save any of them as a hotkey. |
-| **Run Task** / **Run Workspace Template** | Type a template id and its input, toggle modifiers, launch. |
-| **New Task** | The same launch as a form, for briefs that do not fit on one line. What you type is kept as a draft until it launches. |
+| Command                                     | What it does                                                                                                           |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **Search Workspaces**                       | Every workspace with live agent status, grouped by repo. Workspaces blocked on you float to the top.                   |
+| **Agents Needing You**                      | Only the workspaces where an agent is waiting — answer it straight from Raycast.                                       |
+| **Orca Agents** (menu bar)                  | Count of agents waiting on you; click one to jump to its terminal in Orca.                                             |
+| **Create Workspace**                        | Repo, name, base branch, agent and brief — the form equivalent of `orca worktree create`.                              |
+| **Send to Agent**                           | Send a message to any live agent terminal.                                                                             |
+| **Peek Agent Output**                       | Read the tail of an agent terminal as a detail view.                                                                   |
+| **Run Automation** / **Run Automation Now** | Browse Orca automations and run one; save any of them as a hotkey.                                                     |
+| **Run Task** / **Run Workspace Template**   | Type a template id and its input, toggle modifiers, launch — or send it to an open workspace.                          |
+| **New Task**                                | The same launch as a form, for briefs that do not fit on one line. What you type is kept as a draft until it launches. |
 
 ## Run Task
 
@@ -32,11 +32,11 @@ The pane on the right shows what the launch would do before it happens: agent, t
 
 Modifiers toggle with `⌘1` / `⌘2` / `⌘3` (or from `⌘K`) and show as tags in that pane:
 
-| Modifier | Effect |
-| --- | --- |
-| **Pin** | Pins the new workspace via `orca worktree set --pin`. |
+| Modifier      | Effect                                                                                                                                                                                                                                        |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Pin**       | Pins the new workspace via `orca worktree set --pin`.                                                                                                                                                                                         |
 | **Huge Task** | Creates the workspace without an agent, then starts an orchestrator terminal (`claude --model fable` by default), waits for its TUI, and sends the brief. Use it when the job should be split across subagents rather than done by one agent. |
-| **Focus** | Creates the workspace with `--activate` (arc templates: `wt` takes no such flag) and switches Orca to the agent's terminal. Off, the workspace is created in the background and whatever you are looking at in Orca keeps focus. |
+| **Focus**     | Creates the workspace with `--activate` (arc templates: `wt` takes no such flag) and switches Orca to the agent's terminal. Off, the workspace is created in the background and whatever you are looking at in Orca keeps focus.              |
 
 A template's `defaultModifiers` are pre-selected; toggling on this screen overrides them for that launch.
 
@@ -76,19 +76,19 @@ Templates are presets for a workspace launch, stored in `~/.config/orca-raycast/
 }
 ```
 
-| Field | Meaning |
-| --- | --- |
-| `id` | What you type on the **Run Task** screen. Must be unique. |
-| `namePattern` | Workspace name; supports placeholders. |
-| `worktree` | Who makes the checkout: `orca` (default) or `arc`, see below. |
-| `repo` | Repo selector for `--repo`, e.g. `name:orca`, `id:<uuid>`, `path:/abs/path`. Omit it to use the dropdown. |
-| `project` | Project for `wt new --project`, e.g. `pp`. Required when `worktree` is `arc`, ignored otherwise. |
-| `agent`, `prompt` | Agent to launch and the brief sent to it. |
-| `baseBranch`, `comment`, `setup`, `noParent` | Map 1:1 onto the matching `worktree create` flags. |
-| `activate` | Starts the **Focus** modifier switched on; same as listing `focus` in `defaultModifiers`. |
-| `requiresInput` | Refuse to run without an input. |
-| `autoName` | Start a second pane on Haiku that reads the task, renames the workspace after it, and closes itself. For templates whose `namePattern` is a slug of free text, where the name Orca starts with says nothing. |
-| `defaultModifiers` | Modifiers pre-selected for this template (`pin`, `huge`, `focus`). |
+| Field                                        | Meaning                                                                                                                                                                                                      |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`                                         | What you type on the **Run Task** screen. Must be unique.                                                                                                                                                    |
+| `namePattern`                                | Workspace name; supports placeholders.                                                                                                                                                                       |
+| `worktree`                                   | Who makes the checkout: `orca` (default) or `arc`, see below.                                                                                                                                                |
+| `repo`                                       | Repo selector for `--repo`, e.g. `name:orca`, `id:<uuid>`, `path:/abs/path`. Omit it to use the dropdown.                                                                                                    |
+| `project`                                    | Project for `wt new --project`, e.g. `pp`. Required when `worktree` is `arc`, ignored otherwise.                                                                                                             |
+| `agent`, `prompt`                            | Agent to launch and the brief sent to it.                                                                                                                                                                    |
+| `baseBranch`, `comment`, `setup`, `noParent` | Map 1:1 onto the matching `worktree create` flags.                                                                                                                                                           |
+| `activate`                                   | Starts the **Focus** modifier switched on; same as listing `focus` in `defaultModifiers`.                                                                                                                    |
+| `requiresInput`                              | Refuse to run without an input.                                                                                                                                                                              |
+| `autoName`                                   | Start a second pane on Haiku that reads the task, renames the workspace after it, and closes itself. For templates whose `namePattern` is a slug of free text, where the name Orca starts with says nothing. |
+| `defaultModifiers`                           | Modifiers pre-selected for this template (`pin`, `huge`, `focus`).                                                                                                                                           |
 
 ### Folder projects
 
@@ -115,6 +115,25 @@ Arcadia is a monorepo on `arc`, not git, so Orca cannot cut a worktree in it. A 
 `wt new` cuts the arc worktree, registers it in Orca as its own project, creates the workspace and starts the agent with the brief. Everything after that — `pin`, **Huge Task**, **Focus** — works exactly as for an Orca worktree, because `wt` answers with an Orca worktree id.
 
 Only `namePattern`, `agent`, `prompt`, `requiresInput`, `defaultModifiers` and `activate` apply to an arc template; the flags of `orca worktree create` (`repo`, `baseBranch`, `comment`, `setup`, `noParent`) do not reach `wt`.
+
+### Send templates
+
+A template with `send` creates nothing: it types a message into the agent of a workspace that is already open — a coordinator you keep running, for instance.
+
+```json
+{
+  "id": "@levi",
+  "title": "Message the LEVI coordinator",
+  "send": "LEVI // Coordinator",
+  "requiresInput": true
+}
+```
+
+`send` is the workspace's display name, matched exactly. `prompt` wraps the message with `{input}` and the other placeholders; without one the input is sent as is. Only **Focus** applies: it switches Orca to that agent after sending. `namePattern` and the `worktree create` fields are rejected on a send template, since nothing is created.
+
+The message goes to the one agent Orca tracks in that workspace, preferring a pane that sits in a tab. It is not sent when the workspace is not open, when it has no agent pane that identifies as one or has several, or when the agent is waiting on a question or a permission prompt — Enter there would pick an option rather than send a message.
+
+Versions before send templates require `namePattern` on every template and reject the whole file otherwise: remove send templates before downgrading the extension.
 
 The optional top-level `orchestrator` block configures the **Huge Task** modifier: `command` is the startup command, and `promptPrefix` wraps the template's prompt where `{brief}` appears.
 

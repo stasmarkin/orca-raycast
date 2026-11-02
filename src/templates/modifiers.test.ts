@@ -18,6 +18,11 @@ describe("resolveModifiers", () => {
     expect(resolveModifiers({ activate: false }, { focus: true })).toEqual(["focus"]);
   });
 
+  it("offers a send only Focus, whatever its defaults or toggles say", () => {
+    expect(resolveModifiers({ send: "x", defaultModifiers: ["pin", "huge", "focus"] })).toEqual(["focus"]);
+    expect(resolveModifiers({ send: "x" }, { pin: true, huge: true })).toEqual([]);
+  });
+
   it("keeps the declared modifier order, not the order they were toggled in", () => {
     expect(resolveModifiers({}, { huge: true, pin: true })).toEqual(["pin", "huge"]);
   });

@@ -48,6 +48,8 @@ export async function launchTemplate(
 ): Promise<LaunchOutcome> {
   const trimmed = input.trim();
   if (template.requiresInput && !trimmed) throw new TemplateInputRequired(template.title);
+  // The schema demands it of every template that does not send; this keeps a send routed here from creating "".
+  if (template.namePattern === undefined) throw new Error(`Template "${template.id}" names no workspace to create`);
 
   const modifiers = options.modifiers ?? [];
   const isHuge = modifiers.includes("huge");

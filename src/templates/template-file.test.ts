@@ -70,6 +70,18 @@ describe("readTemplates", () => {
     );
     expect((await readTemplates())[0]?.project).toBe("pp");
   });
+
+  it("accepts a send without a namePattern, since it creates no workspace", async () => {
+    writeFileSync(TEMPLATE_FILE, JSON.stringify({ templates: [{ id: "@a", title: "A", send: "A // Coordinator" }] }));
+    expect((await readTemplates())[0]?.send).toBe("A // Coordinator");
+  });
+
+  it("rejects a send that also carries fields only a created workspace would use", async () => {
+    for (const extra of [{ namePattern: "x" }, { repo: "name:orca" }, { defaultModifiers: ["pin"] }]) {
+      writeFileSync(TEMPLATE_FILE, JSON.stringify({ templates: [{ id: "@a", title: "A", send: "A", ...extra }] }));
+      await expect(readTemplates(), JSON.stringify(extra)).rejects.toThrow(TemplateFileError);
+    }
+  });
 });
 
 describe("findTemplate", () => {

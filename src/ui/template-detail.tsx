@@ -1,5 +1,5 @@
 import { Color, Icon, List } from "@raycast/api";
-import { MODIFIERS, type ModifierId } from "../templates/modifiers";
+import { MODIFIERS, modifiersFor, type ModifierId } from "../templates/modifiers";
 import type { TemplatePreview } from "../templates/template-preview";
 import {
   DEFAULT_ORCHESTRATOR_COMMAND,
@@ -21,6 +21,7 @@ export type TemplateDetailProps = {
 
 export function TemplateDetail(props: TemplateDetailProps) {
   const { template, preview, active, orchestrator, repoName, missingInput, draftLine } = props;
+  if (template.send !== undefined) return <SendDetail {...props} send={template.send} />;
   const isHuge = active.includes("huge");
   const agent = isHuge ? (orchestrator?.command ?? DEFAULT_ORCHESTRATOR_COMMAND) : (template.agent ?? "none");
   const target = describeTarget(template, repoName);
@@ -47,7 +48,7 @@ export function TemplateDetail(props: TemplateDetailProps) {
           )}
           <List.Item.Detail.Metadata.Label
             title="Workspace name"
-            text={preview.worktreeName}
+            text={preview.worktreeName ?? ""}
             icon={missingInput ? Icon.ExclamationMark : undefined}
           />
           <List.Item.Detail.Metadata.Separator />
@@ -67,6 +68,38 @@ export function TemplateDetail(props: TemplateDetailProps) {
               ))}
             </List.Item.Detail.Metadata.TagList>
           )}
+        </List.Item.Detail.Metadata>
+      }
+    />
+  );
+}
+
+function SendDetail(props: TemplateDetailProps & { send: string }) {
+  const { template, preview, active, missingInput, draftLine, send } = props;
+  const message = missingInput
+    ? `## Message\n\nType the input after \`${template.id}\` to see the message this sends.`
+    : `## Message\n\n${preview.prompt ?? ""}`;
+
+  return (
+    <List.Item.Detail
+      markdown={message}
+      metadata={
+        <List.Item.Detail.Metadata>
+          <List.Item.Detail.Metadata.Label title="Workflow" text={template.title} />
+          {draftLine !== undefined && (
+            <List.Item.Detail.Metadata.Label title="Unsent draft" text={draftLine} icon={Icon.Pencil} />
+          )}
+          <List.Item.Detail.Metadata.Label title="Send to" text={send} icon={Icon.Message} />
+          <List.Item.Detail.Metadata.Separator />
+          <List.Item.Detail.Metadata.TagList title="Modifiers">
+            {modifiersFor(template).map((modifier) => (
+              <List.Item.Detail.Metadata.TagList.Item
+                key={modifier.id}
+                text={`⌘${modifier.key} ${modifier.title}`}
+                color={active.includes(modifier.id) ? Color.Green : Color.SecondaryText}
+              />
+            ))}
+          </List.Item.Detail.Metadata.TagList>
         </List.Item.Detail.Metadata>
       }
     />

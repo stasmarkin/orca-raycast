@@ -1,7 +1,7 @@
 import { Action, ActionPanel, Form, Icon, showToast, Toast, useNavigation } from "@raycast/api";
 import { useCachedPromise, usePromise } from "@raycast/utils";
 import { useEffect, useRef, useState } from "react";
-import { MODIFIERS, resolveModifiers, type ModifierId, type ModifierOverrides } from "../templates/modifiers";
+import { modifiersFor, resolveModifiers, type ModifierId, type ModifierOverrides } from "../templates/modifiers";
 import { usesClipboardPlaceholder } from "../templates/placeholders";
 import {
   clearTaskDraft,
@@ -60,7 +60,8 @@ function TaskFields({ template, draft, orchestrator, onLaunched }: TaskFormProps
   const { data: clipboard = "" } = usePromise(readClipboardOnce, [], { execute: needsClipboard });
 
   const preview = previewTemplate(template, input, clipboard);
-  const needsRepo = template.worktree !== "arc" && !template.repo;
+  const needsRepo = template.send === undefined && template.worktree !== "arc" && !template.repo;
+  const modifiers = modifiersFor(template);
 
   async function submit() {
     if (isRunning) return;
@@ -96,10 +97,14 @@ function TaskFields({ template, draft, orchestrator, onLaunched }: TaskFormProps
       navigationTitle={template.title}
       actions={
         <ActionPanel>
-          <Action.SubmitForm title={`Run ${template.id}`} icon={Icon.Play} onSubmit={submit} />
+          <Action.SubmitForm
+            title={`${template.send === undefined ? "Run" : "Send"} ${template.id}`}
+            icon={template.send === undefined ? Icon.Play : Icon.Message}
+            onSubmit={submit}
+          />
           {/* The checkboxes are reachable by Tab, but not without leaving the brief mid-sentence. */}
           <ActionPanel.Section title="Modifiers">
-            {MODIFIERS.map((modifier) => (
+            {modifiers.map((modifier) => (
               <Action
                 key={modifier.id}
                 title={`${active.includes(modifier.id) ? "Disable" : "Enable"} ${modifier.title}`}
@@ -146,7 +151,7 @@ function TaskFields({ template, draft, orchestrator, onLaunched }: TaskFormProps
         </Form.Dropdown>
       )}
 
-      {MODIFIERS.map((modifier) => (
+      {modifiers.map((modifier) => (
         <Form.Checkbox
           key={modifier.id}
           id={modifier.id}
@@ -159,8 +164,17 @@ function TaskFields({ template, draft, orchestrator, onLaunched }: TaskFormProps
 
       <Form.Separator />
 
-      <Form.Description title="Workspace name" text={preview.worktreeName} />
-      <Form.Description title="Prompt" text={preview.prompt ?? "This workflow starts its agent with no brief."} />
+      {template.send === undefined ? (
+        <>
+          <Form.Description title="Workspace name" text={preview.worktreeName ?? ""} />
+          <Form.Description title="Prompt" text={preview.prompt ?? "This workflow starts its agent with no brief."} />
+        </>
+      ) : (
+        <>
+          <Form.Description title="Send to" text={template.send} />
+          <Form.Description title="Message" text={preview.prompt ?? ""} />
+        </>
+      )}
     </Form>
   );
 }

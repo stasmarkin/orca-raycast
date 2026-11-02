@@ -1,5 +1,6 @@
 import { showToast, Toast } from "@raycast/api";
 import { launchTemplate, stillRunning, type LaunchOptions } from "../templates/launch-template";
+import { sendTemplate } from "../templates/send-template";
 import type { WorkspaceTemplate } from "../templates/template-file";
 import { writeDefaultRepo } from "../templates/repo-selection";
 import { describeError } from "../orca/invoke";
@@ -14,6 +15,7 @@ export async function launchWithToasts(
   input: string,
   options: LaunchOptions,
 ): Promise<boolean> {
+  if (template.send !== undefined) return sendWithToasts(template, input, options);
   const toast = await showToast({ style: Toast.Style.Animated, title: `Creating ${template.title}` });
 
   let outcome;
@@ -40,6 +42,36 @@ export async function launchWithToasts(
     await showToast({
       style: Toast.Style.Failure,
       title: "Created, but could not switch to Orca",
+      message: describeError(error),
+    });
+  }
+  return true;
+}
+
+async function sendWithToasts(template: WorkspaceTemplate, input: string, options: LaunchOptions): Promise<boolean> {
+  const toast = await showToast({ style: Toast.Style.Animated, title: `Sending to ${template.send}` });
+
+  let outcome;
+  try {
+    outcome = await sendTemplate(template, input);
+  } catch (error) {
+    toast.style = Toast.Style.Failure;
+    toast.title = "Not sent";
+    toast.message = describeError(error);
+    return false;
+  }
+
+  toast.style = Toast.Style.Success;
+  toast.title = "Sent";
+  toast.message = template.send;
+
+  if (!options.modifiers?.includes("focus")) return true;
+  try {
+    await revealTerminalInOrca(outcome.handle);
+  } catch (error) {
+    await showToast({
+      style: Toast.Style.Failure,
+      title: "Sent, but could not switch to Orca",
       message: describeError(error),
     });
   }

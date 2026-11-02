@@ -1,7 +1,8 @@
 import { LaunchProps, showHUD, showToast, Toast } from "@raycast/api";
 import { findTemplate, launchTemplate, stillRunning } from "./templates/launch-template";
-import { parseModifiers, templateDefaultModifiers, type ModifierId } from "./templates/modifiers";
-import { readTemplateFile } from "./templates/template-file";
+import { modifiersFor, parseModifiers, templateDefaultModifiers, type ModifierId } from "./templates/modifiers";
+import { readTemplateFile, type WorkspaceTemplate } from "./templates/template-file";
+import { sendTemplate } from "./templates/send-template";
 import { readDefaultRepo } from "./templates/repo-selection";
 import { describeError } from "./orca/invoke";
 import { revealTerminalInOrca } from "./orca/reveal";
@@ -22,6 +23,16 @@ export default async function Command(
     // empty set, which an empty string cannot survive — the deeplink drops empty values.
     const requested = props.arguments.modifiers?.trim() ?? "";
     modifiers = requested ? parseModifiers(requested) : templateDefaultModifiers(template);
+
+    if (template.send !== undefined) {
+      const applicable = new Set(modifiersFor(template).map((modifier) => modifier.id));
+      await sendFromHotkey(
+        template,
+        input,
+        modifiers.filter((id) => applicable.has(id)),
+      );
+      return;
+    }
 
     await showToast({ style: Toast.Style.Animated, title: `Creating ${template.title}` });
     outcome = await launchTemplate(template, input, {
@@ -56,6 +67,31 @@ export default async function Command(
     await showToast({
       style: Toast.Style.Failure,
       title: "Created, but could not switch to Orca",
+      message: describeError(error),
+    });
+  }
+}
+
+async function sendFromHotkey(template: WorkspaceTemplate, input: string, modifiers: ModifierId[]): Promise<void> {
+  let outcome;
+  try {
+    await showToast({ style: Toast.Style.Animated, title: `Sending to ${template.send}` });
+    outcome = await sendTemplate(template, input);
+  } catch (error) {
+    await showToast({ style: Toast.Style.Failure, title: "Not sent", message: describeError(error) });
+    return;
+  }
+
+  if (!modifiers.includes("focus")) {
+    await showHUD(`✉️ ${template.send}`);
+    return;
+  }
+  try {
+    await revealTerminalInOrca(outcome.handle);
+  } catch (error) {
+    await showToast({
+      style: Toast.Style.Failure,
+      title: "Sent, but could not switch to Orca",
       message: describeError(error),
     });
   }

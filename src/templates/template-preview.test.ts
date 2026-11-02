@@ -52,6 +52,11 @@ describe("previewTemplate", () => {
     expect(usesClipboard({ ...ARC, namePattern: "{clipboard}", prompt: undefined })).toBe(true);
   });
 
+  it("shows a send without a prompt passing the input on as the message, with no workspace name", () => {
+    const send: WorkspaceTemplate = { id: "@levi", title: "LEVI", send: "LEVI // Coordinator" };
+    expect(previewTemplate(send, " проверь демон ", "")).toEqual({ worktreeName: undefined, prompt: "проверь демон" });
+  });
+
   it("reports a missing prompt as missing, not as empty", () => {
     const silent = { ...ARC, prompt: undefined };
     expect(previewTemplate(silent, "x", "").prompt).toBeUndefined();

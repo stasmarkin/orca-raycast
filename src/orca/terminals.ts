@@ -3,6 +3,7 @@ import { invokeOrca, OrcaContractError } from "./invoke";
 import {
   CreateTerminalSchema,
   TerminalListSchema,
+  TerminalSendSchema,
   TerminalTailSchema,
   TerminalWaitSchema,
   type Terminal,
@@ -31,6 +32,12 @@ export function canReceiveInput(terminal: Terminal): boolean {
   return Boolean(terminal.agentIdentity) && terminal.connected && terminal.writable;
 }
 
+/** The key `worktree ps` files an agent under, so an agent can be traced to the pane it runs in. */
+export function paneKeyOf(terminal: Terminal): string | undefined {
+  if (terminal.recordedPaneKey) return terminal.recordedPaneKey;
+  return terminal.tabId && terminal.leafId ? `${terminal.tabId}:${terminal.leafId}` : undefined;
+}
+
 /** A terminal safe to type into. Deliberately has no fallback to "first pane". */
 export function agentTerminal(terminals: Terminal[]): Terminal | undefined {
   return terminals.find(canReceiveInput);
@@ -49,7 +56,12 @@ export async function readTerminal(handle: string, lines: number): Promise<Termi
 export async function sendToTerminal(handle: string, text: string, submit: boolean): Promise<void> {
   const args = ["terminal", "send", `--terminal=${handle}`, `--text=${text}`];
   if (submit) args.push("--enter");
-  await invokeOrca(args, z.unknown());
+  const result = await invokeOrca(args, TerminalSendSchema);
+  // A refusal still arrives as a well-formed answer, and reading it as success would drop the user's text.
+  if (result.send?.accepted === false) {
+    const reason = result.send.refusedReason ? `: ${result.send.refusedReason}` : "";
+    throw new Error(`Orca refused the input${reason}`);
+  }
 }
 
 /** Creates a terminal running `command`; used to launch an agent Orca's own `--agent` flag cannot configure. */

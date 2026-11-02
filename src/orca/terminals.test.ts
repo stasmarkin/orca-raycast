@@ -1,6 +1,12 @@
-import { describe, expect, it } from "vitest";
-import { agentTerminal, canReceiveInput, terminalsForWorkspace } from "./terminals";
+import { describe, expect, it, vi } from "vitest";
+import { agentTerminal, canReceiveInput, sendToTerminal, terminalsForWorkspace } from "./terminals";
 import { TerminalSchema } from "./types";
+import { invokeOrca } from "./invoke";
+
+vi.mock("./invoke", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./invoke")>()),
+  invokeOrca: vi.fn(),
+}));
 
 function terminal(overrides: Record<string, unknown>) {
   return TerminalSchema.parse({ handle: "t", ...overrides });
@@ -44,5 +50,20 @@ describe("terminalsForWorkspace", () => {
   it("returns nothing for an empty path instead of claiming unrelated terminals", () => {
     const orphan = terminal({ handle: "a", worktreePath: "" });
     expect(terminalsForWorkspace([orphan], "")).toEqual([]);
+  });
+});
+
+describe("sendToTerminal", () => {
+  it("fails when Orca refuses the input, so the caller keeps the user's text", async () => {
+    vi.mocked(invokeOrca).mockResolvedValueOnce({ send: { accepted: false, refusedReason: "busy" } });
+    await expect(sendToTerminal("t", "hi", true)).rejects.toThrow(/refused the input: busy/);
+  });
+
+  it("succeeds on an accepted send and on an older host that reports no verdict", async () => {
+    vi.mocked(invokeOrca)
+      .mockResolvedValueOnce({ send: { accepted: true } })
+      .mockResolvedValueOnce({});
+    await expect(sendToTerminal("t", "hi", true)).resolves.toBeUndefined();
+    await expect(sendToTerminal("t", "hi", true)).resolves.toBeUndefined();
   });
 });

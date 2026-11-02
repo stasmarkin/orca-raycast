@@ -1,7 +1,7 @@
 import { Action, ActionPanel, Color, Icon, Keyboard, List, showToast, Toast } from "@raycast/api";
 import { useCachedPromise, usePromise } from "@raycast/utils";
 import { useMemo, useState } from "react";
-import { MODIFIERS, resolveModifiers, type ModifierOverrides } from "./templates/modifiers";
+import { modifiersFor, resolveModifiers, type ModifierOverrides } from "./templates/modifiers";
 import { matchTemplates, parseRunQuery } from "./templates/run-query";
 import { previewTemplate, usesClipboard } from "./templates/template-preview";
 import { usesClipboardPlaceholder } from "./templates/placeholders";
@@ -44,7 +44,7 @@ export default function Command() {
       return;
     }
 
-    if (template.worktree !== "arc" && !template.repo && !repo) {
+    if (template.send === undefined && template.worktree !== "arc" && !template.repo && !repo) {
       await showToast({
         style: Toast.Style.Failure,
         title: "Pick a repo first",
@@ -112,10 +112,11 @@ export default function Command() {
 
       {matches.map((template) => {
         const active = resolveModifiers(template, overrides[template.id]);
+        const sends = template.send !== undefined;
         return (
           <List.Item
             key={template.id}
-            icon={{ source: Icon.Rocket, tintColor: Color.Blue }}
+            icon={{ source: sends ? Icon.Message : Icon.Rocket, tintColor: Color.Blue }}
             title={template.id}
             detail={
               <TemplateDetail
@@ -130,12 +131,16 @@ export default function Command() {
             actions={
               <ActionPanel>
                 <Action
-                  title={template.requiresInput && !input ? `Pick ${template.id}` : `Run ${template.id}`}
-                  icon={template.requiresInput && !input ? Icon.TextInput : Icon.Play}
+                  title={
+                    template.requiresInput && !input
+                      ? `Pick ${template.id}`
+                      : `${sends ? "Send" : "Run"} ${template.id}`
+                  }
+                  icon={template.requiresInput && !input ? Icon.TextInput : sends ? Icon.Message : Icon.Play}
                   onAction={() => run(template)}
                 />
                 <ActionPanel.Section title="Modifiers">
-                  {MODIFIERS.map((modifier) => (
+                  {modifiersFor(template).map((modifier) => (
                     <Action
                       key={modifier.id}
                       title={`${active.includes(modifier.id) ? "Disable" : "Enable"} ${modifier.title}`}

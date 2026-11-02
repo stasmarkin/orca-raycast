@@ -35,19 +35,28 @@ export const MODIFIERS: ModifierSpec[] = [
 
 export type ModifierOverrides = Partial<Record<ModifierId, boolean>>;
 
-type ModifierDefaults = { defaultModifiers?: ModifierId[]; activate?: boolean };
+type ModifierDefaults = { defaultModifiers?: ModifierId[]; activate?: boolean; send?: string };
+
+/** A message to an existing workspace creates nothing to pin and starts no orchestrator. */
+export function modifiersFor(template: { send?: string }): ModifierSpec[] {
+  return template.send === undefined ? MODIFIERS : MODIFIERS.filter((modifier) => modifier.id === "focus");
+}
 
 /** `activate` predates the Focus toggle, so a template that sets it still starts with Focus on. */
 export function templateDefaultModifiers(template: ModifierDefaults): ModifierId[] {
   const defaults = new Set(template.defaultModifiers ?? []);
   if (template.activate) defaults.add("focus");
-  return MODIFIER_IDS.filter((id) => defaults.has(id));
+  return applicableIds(template).filter((id) => defaults.has(id));
 }
 
 /** A template's defaults apply until the user overrides that modifier on the launch screen. */
 export function resolveModifiers(template: ModifierDefaults, overrides: ModifierOverrides = {}): ModifierId[] {
   const defaults = new Set(templateDefaultModifiers(template));
-  return MODIFIER_IDS.filter((id) => overrides[id] ?? defaults.has(id));
+  return applicableIds(template).filter((id) => overrides[id] ?? defaults.has(id));
+}
+
+function applicableIds(template: ModifierDefaults): ModifierId[] {
+  return modifiersFor(template).map((modifier) => modifier.id);
 }
 
 export function isModifierId(value: string): value is ModifierId {

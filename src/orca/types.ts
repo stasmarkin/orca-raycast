@@ -83,6 +83,10 @@ export const TerminalSchema = z.object({
   worktreePath: z.string().catch(""),
   branch: z.string().catch(""),
   title: z.string().catch(""),
+  tabId: z.string().nullable().catch(null),
+  leafId: z.string().nullable().catch(null),
+  /** Set on an orphaned pane instead of its tab and leaf. */
+  recordedPaneKey: z.string().nullable().catch(null),
   connected: z.boolean().catch(false),
   writable: z.boolean().catch(false),
   orphaned: z.boolean().catch(false),
@@ -112,6 +116,16 @@ export const CreateTerminalSchema = z.object({
   terminal: z.object({ handle: z.string(), worktreeId: z.string().catch("") }).optional(),
   handle: z.string().optional(),
 });
+
+/** Only the verdict is read; an older host that answers without `send` is taken as accepted, as before. */
+export const TerminalSendSchema = z
+  .object({
+    send: z
+      .object({ accepted: z.boolean().optional(), refusedReason: z.string().nullable().catch(null).optional() })
+      .optional()
+      .catch(undefined),
+  })
+  .catch({});
 
 export const TerminalWaitSchema = z.object({
   satisfied: z.boolean().optional(),

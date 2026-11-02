@@ -49,7 +49,10 @@ export default function Command() {
         return (
           <List.Item
             key={template.id}
-            icon={{ source: Icon.Rocket, tintColor: draft ? Color.Yellow : Color.Blue }}
+            icon={{
+              source: template.send === undefined ? Icon.Rocket : Icon.Message,
+              tintColor: draft ? Color.Yellow : Color.Blue,
+            }}
             title={template.id}
             accessories={draft ? [{ tag: { value: "draft", color: Color.Yellow } }] : []}
             detail={

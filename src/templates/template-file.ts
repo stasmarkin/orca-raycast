@@ -6,6 +6,19 @@ import { MODIFIER_IDS } from "./modifiers";
 
 export const TEMPLATE_FILE = join(homedir(), ".config", "orca-raycast", "templates.json");
 
+const CREATE_ONLY_FIELDS = [
+  "worktree",
+  "repo",
+  "project",
+  "namePattern",
+  "baseBranch",
+  "agent",
+  "comment",
+  "setup",
+  "noParent",
+  "autoName",
+] as const;
+
 const TemplateSchema = z
   .object({
     id: z.string().min(1),
@@ -16,7 +29,9 @@ const TemplateSchema = z
     repo: z.string().min(1).optional(),
     /** Project as understood by `wt new --project`, e.g. `pp`. Arc templates only. */
     project: z.string().min(1).optional(),
-    namePattern: z.string().min(1),
+    /** Display name of an open workspace: the template messages its agent instead of creating a workspace. */
+    send: z.string().min(1).optional(),
+    namePattern: z.string().min(1).optional(),
     baseBranch: z.string().min(1).optional(),
     agent: z.string().min(1).optional(),
     prompt: z.string().optional(),
@@ -33,6 +48,20 @@ const TemplateSchema = z
     defaultModifiers: z.array(z.enum(MODIFIER_IDS)).optional(),
   })
   .superRefine((template, ctx) => {
+    if (template.send === undefined && template.namePattern === undefined) {
+      ctx.addIssue({ code: "custom", path: ["namePattern"], message: "is required unless the template sends" });
+    }
+    if (template.send !== undefined) {
+      // A send creates nothing, so these would be silently ignored — most likely `send` added to the wrong template.
+      for (const field of CREATE_ONLY_FIELDS) {
+        if (template[field] !== undefined) {
+          ctx.addIssue({ code: "custom", path: [field], message: "does not apply to a template that sends" });
+        }
+      }
+      if (template.defaultModifiers?.some((modifier) => modifier !== "focus")) {
+        ctx.addIssue({ code: "custom", path: ["defaultModifiers"], message: "a send only takes focus" });
+      }
+    }
     if (template.worktree === "arc" && !template.project) {
       ctx.addIssue({ code: "custom", path: ["project"], message: 'is required when worktree is "arc"' });
     }
