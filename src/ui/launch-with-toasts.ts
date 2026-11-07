@@ -1,6 +1,6 @@
 import { showToast, Toast } from "@raycast/api";
 import { launchTemplate, stillRunning, type LaunchOptions } from "../templates/launch-template";
-import { sendTemplate } from "../templates/send-template";
+import { sendTemplate, SendUnconfirmedError } from "../templates/send-template";
 import type { WorkspaceTemplate } from "../templates/template-file";
 import { writeDefaultRepo } from "../templates/repo-selection";
 import { describeError } from "../orca/invoke";
@@ -56,7 +56,7 @@ async function sendWithToasts(template: WorkspaceTemplate, input: string, option
     outcome = await sendTemplate(template, input);
   } catch (error) {
     toast.style = Toast.Style.Failure;
-    toast.title = "Not sent";
+    toast.title = error instanceof SendUnconfirmedError ? "Maybe sent" : "Not sent";
     toast.message = describeError(error);
     return false;
   }

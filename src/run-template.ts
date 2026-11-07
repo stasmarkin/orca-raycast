@@ -2,7 +2,7 @@ import { LaunchProps, showHUD, showToast, Toast } from "@raycast/api";
 import { findTemplate, launchTemplate, stillRunning } from "./templates/launch-template";
 import { modifiersFor, parseModifiers, templateDefaultModifiers, type ModifierId } from "./templates/modifiers";
 import { readTemplateFile, type WorkspaceTemplate } from "./templates/template-file";
-import { sendTemplate } from "./templates/send-template";
+import { sendTemplate, SendUnconfirmedError } from "./templates/send-template";
 import { readDefaultRepo } from "./templates/repo-selection";
 import { describeError } from "./orca/invoke";
 import { revealTerminalInOrca } from "./orca/reveal";
@@ -78,7 +78,11 @@ async function sendFromHotkey(template: WorkspaceTemplate, input: string, modifi
     await showToast({ style: Toast.Style.Animated, title: `Sending to ${template.send}` });
     outcome = await sendTemplate(template, input);
   } catch (error) {
-    await showToast({ style: Toast.Style.Failure, title: "Not sent", message: describeError(error) });
+    await showToast({
+      style: Toast.Style.Failure,
+      title: error instanceof SendUnconfirmedError ? "Maybe sent" : "Not sent",
+      message: describeError(error),
+    });
     return;
   }
 

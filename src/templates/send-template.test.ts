@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { pickSendTarget, sendTemplate, SendTargetError } from "./send-template";
+import { pickSendTarget, sendTemplate, SendTargetError, SendUnconfirmedError } from "./send-template";
+import { OrcaTimeoutError } from "../orca/invoke";
 import { TerminalSchema, WorkspaceSchema, type Terminal, type Workspace } from "../orca/types";
 import { listTerminals, sendToTerminal } from "../orca/terminals";
 import { listWorkspaces } from "../orca/workspaces";
@@ -147,5 +148,22 @@ describe("sendTemplate", () => {
       /needs an input/,
     );
     expect(sendToTerminal).not.toHaveBeenCalled();
+  });
+
+  it("refuses to pick a target from a truncated list", async () => {
+    vi.mocked(listTerminals).mockResolvedValue({
+      terminals: [terminal("main", { tabId: "t1", leafId: "l1" })],
+      totalCount: 3000,
+      truncated: true,
+    });
+    const template = { id: "@levi", title: "LEVI", send: NAME, prompt: "{input}" };
+    await expect(sendTemplate(template, "проверь")).rejects.toBeInstanceOf(SendTargetError);
+    expect(sendToTerminal).not.toHaveBeenCalled();
+  });
+
+  it("reports a timed-out send as unconfirmed, not as failed", async () => {
+    vi.mocked(sendToTerminal).mockRejectedValue(new OrcaTimeoutError("terminal send"));
+    const template = { id: "@levi", title: "LEVI", send: NAME, prompt: "{input}" };
+    await expect(sendTemplate(template, "проверь")).rejects.toBeInstanceOf(SendUnconfirmedError);
   });
 });

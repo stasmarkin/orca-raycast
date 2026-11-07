@@ -1,5 +1,6 @@
 import { canReceiveInput, listTerminals, paneKeyOf, sendToTerminal, terminalsForWorkspace } from "../orca/terminals";
 import { listWorkspaces } from "../orca/workspaces";
+import { OrcaTimeoutError } from "../orca/invoke";
 import { isVisible, type Terminal, type Workspace } from "../orca/types";
 import { TemplateInputRequired } from "./launch-template";
 import { expandPlaceholders } from "./placeholders";
@@ -8,6 +9,14 @@ import type { WorkspaceTemplate } from "./template-file";
 
 /** The target cannot take the message right now; the text says what the user should do about it. */
 export class SendTargetError extends Error {}
+
+/** The send may have landed after all; resending blindly would give the agent the task twice. */
+export class SendUnconfirmedError extends Error {
+  constructor(target: string) {
+    super(`Orca did not confirm the message to "${target}" in time — check the agent before sending again`);
+    this.name = "SendUnconfirmedError";
+  }
+}
 
 export type SendOutcome = {
   /** The pane the message went to, for Focus to reveal. */
@@ -23,10 +32,19 @@ export async function sendTemplate(template: WorkspaceTemplate, input: string): 
   const message = await expandPlaceholders(templatePrompt(template) ?? "", { input: trimmed });
   if (!message.trim()) throw new SendTargetError("Nothing to send");
 
-  const [{ worktrees }, { terminals }] = await Promise.all([listWorkspaces(), listTerminals()]);
-  const handle = pickSendTarget(worktrees, terminals, template.send);
-  // A newline inside the TUI submits, so the whole message has to arrive as one line.
-  await sendToTerminal(handle, message.replace(/\s*\n\s*/g, " "), true);
+  const [workspaces, terminalList] = await Promise.all([listWorkspaces(), listTerminals()]);
+  // A namesake workspace or a second agent past the cut would let an ambiguous target look unique.
+  if (workspaces.truncated || terminalList.truncated) {
+    throw new SendTargetError("Orca truncated its workspace or terminal list — send with Send to Agent");
+  }
+  const handle = pickSendTarget(workspaces.worktrees, terminalList.terminals, template.send);
+  try {
+    // A newline inside the TUI submits, so the whole message has to arrive as one line.
+    await sendToTerminal(handle, message.replace(/\s*\n\s*/g, " "), true);
+  } catch (error) {
+    if (error instanceof OrcaTimeoutError) throw new SendUnconfirmedError(template.send);
+    throw error;
+  }
   return { handle };
 }
 
