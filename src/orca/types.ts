@@ -169,6 +169,15 @@ export const CreateWorkspaceSchema = z.object({
     .optional(),
   agentTerminalHandle: z.string().optional(),
   startupTerminal: z.object({ handle: z.string().optional() }).optional(),
+  // Hosts with agent.launch report the agent's pane and the brief's fate here instead of the fields above.
+  // A receipt of an unexpected shape must not turn an already created workspace into a failure.
+  launch: z
+    .object({
+      outcome: z.object({ kind: z.string().nullish(), handle: z.string().nullish() }).nullish(),
+      prompt: z.object({ outcome: z.string().nullish() }).nullish(),
+    })
+    .nullish()
+    .catch(undefined),
 });
 
 export type WorkspaceAgent = z.infer<typeof AgentSchema>;
@@ -182,6 +191,18 @@ export type Automation = z.infer<typeof AutomationListSchema>["automations"][num
 export type CreateWorkspaceResult = z.infer<typeof CreateWorkspaceSchema>;
 
 /** True when the workspace is blocked on the user rather than making progress on its own. */
+/** The created agent's terminal; a structured chat has a session handle that terminal commands reject. */
+export function agentTerminalHandle(result: CreateWorkspaceResult): string | undefined {
+  const outcome = result.launch?.outcome;
+  const fromReceipt = outcome?.kind === "structured" ? undefined : (outcome?.handle ?? undefined);
+  return fromReceipt ?? result.agentTerminalHandle ?? result.startupTerminal?.handle;
+}
+
+/** A long brief rides no launch line and Orca's paste may give up; other outcomes may already be a turn, so never resend them. */
+export function briefLeftUndelivered(result: CreateWorkspaceResult): boolean {
+  return result.launch?.outcome?.kind !== "structured" && result.launch?.prompt?.outcome === "not-delivered";
+}
+
 export function needsAttention(workspace: Workspace): boolean {
   return workspace.status === "permission" || workspace.agents.some((agent) => agent.state === "waiting");
 }

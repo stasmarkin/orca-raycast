@@ -1,6 +1,6 @@
 import { createWorkspace, pinWorkspace, workspaceSelector } from "../orca/workspaces";
 import { createTerminal, sendToTerminal, terminalAcceptsInput, waitForTuiIdle } from "../orca/terminals";
-import type { CreateWorkspaceResult } from "../orca/types";
+import { agentTerminalHandle, briefLeftUndelivered, type CreateWorkspaceResult } from "../orca/types";
 import { OrcaTimeoutError } from "../orca/invoke";
 import { createArcWorktree, WtTimeoutError } from "../wt/worktrees";
 import { toWtWorktreeName } from "../wt/worktree-name";
@@ -80,7 +80,8 @@ export async function launchTemplate(
   const result = created.result;
   const warnings: string[] = created.warning === undefined ? [] : [created.warning];
   const selector = createdWorkspaceSelector(result);
-  let handle = result.agentTerminalHandle ?? result.startupTerminal?.handle;
+  const agentHandle = agentTerminalHandle(result);
+  let handle = agentHandle;
 
   if (isHuge) {
     if (!selector) warnings.push("Orca returned no workspace id, so the orchestrator was not started");
@@ -114,6 +115,15 @@ export async function launchTemplate(
       } catch (error) {
         warnings.push(`Not pinned: ${(error as Error).message}`);
       }
+    }
+  }
+
+  // Last, because waiting for the TUI can take minutes and must not hold up naming and pinning.
+  if (brief !== undefined && briefLeftUndelivered(result)) {
+    if (!agentHandle) warnings.push("Brief not delivered: Orca returned no agent terminal — send it by hand");
+    else {
+      const warning = await typeBrief(agentHandle, brief);
+      if (warning) warnings.push(warning);
     }
   }
 
@@ -165,7 +175,11 @@ async function startAgent(
 ): Promise<{ handle: string; warning?: string }> {
   const handle = await createTerminal(selector, command, title);
   if (brief === undefined || brief.length === 0) return { handle };
+  return { handle, warning: await typeBrief(handle, brief) };
+}
 
+/** Types the brief into an agent pane once its TUI is up; returns a warning instead of throwing. */
+async function typeBrief(handle: string, brief: string): Promise<string | undefined> {
   try {
     // Both gates guard the same accident: a command that never became an agent leaves a plain shell,
     // and typing the brief with Enter into it would run the task description as shell commands.
@@ -177,9 +191,9 @@ async function startAgent(
     }
     // A newline inside the TUI submits, so the whole brief has to arrive as one line.
     await sendToTerminal(handle, brief.replace(/\s*\n\s*/g, " "), true);
-    return { handle };
+    return undefined;
   } catch (error) {
-    return { handle, warning: `Brief not typed: ${(error as Error).message} — send it by hand` };
+    return `Brief not typed: ${(error as Error).message} — send it by hand`;
   }
 }
 

@@ -5,6 +5,7 @@ import { AGENT_IDS } from "./orca/agent-ids";
 import { createWorkspace, listRepos } from "./orca/workspaces";
 import { describeError, OrcaTimeoutError } from "./orca/invoke";
 import { revealTerminalInOrca } from "./orca/reveal";
+import { agentTerminalHandle, briefLeftUndelivered } from "./orca/types";
 
 type FormValues = {
   repo: string;
@@ -45,9 +46,15 @@ export default function Command() {
         activate: values.activate,
       });
 
-      toast.style = Toast.Style.Success;
-      toast.title = "Workspace created";
-      toast.message = created.worktree?.path;
+      if (briefLeftUndelivered(created)) {
+        toast.style = Toast.Style.Failure;
+        toast.title = "Created, but the prompt was not delivered";
+        toast.message = "Send it to the agent by hand";
+      } else {
+        toast.style = Toast.Style.Success;
+        toast.title = "Workspace created";
+        toast.message = created.worktree?.path;
+      }
     } catch (error) {
       toast.style = Toast.Style.Failure;
       // A timed-out create usually left a real worktree behind; saying "failed" invites a duplicate.
@@ -58,7 +65,7 @@ export default function Command() {
       setIsCreating(false);
     }
 
-    const handle = created.agentTerminalHandle ?? created.startupTerminal?.handle;
+    const handle = agentTerminalHandle(created);
     if (!values.activate || !handle) return;
     try {
       await revealTerminalInOrca(handle);
